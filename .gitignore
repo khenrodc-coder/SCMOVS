@@ -20,6 +20,8 @@ env/
 # Local uploads and private backups
 uploads/
 backups/
+!app/backups/
+!app/backups/**
 
 # Local logs
 *.log
