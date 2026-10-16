@@ -25,14 +25,22 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
 
     # Uploads live OUTSIDE static/ so they are never publicly downloadable
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+    UPLOAD_FOLDER = (
+        "/tmp/scmovs_uploads"
+        if os.environ.get("VERCEL") == "1"
+        else os.path.join(BASE_DIR, "uploads")
+    )
     MAX_CONTENT_LENGTH = 6 * 1024 * 1024  # 5 MB
 
     SYSTEM_NAME = "SCMOVS"
     SYSTEM_FULL_NAME = "Student Council Management and Online Voting System"
 
     # Backup and recovery (Phase 4D). Backups live OUTSIDE static/ so they are never public.
-    BACKUP_FOLDER = os.path.join(BASE_DIR, "backups")
+    BACKUP_FOLDER = (
+        "/tmp/scmovs_backups"
+        if os.environ.get("VERCEL") == "1"
+        else os.path.join(BASE_DIR, "backups")
+    )
     # Full path if the tools are not on your PATH, e.g. C:\xampp\mysql\bin\mysqldump.exe
     MYSQLDUMP_PATH = os.environ.get("MYSQLDUMP_PATH", "mysqldump")
     MYSQL_PATH = os.environ.get("MYSQL_PATH", "mysql")
