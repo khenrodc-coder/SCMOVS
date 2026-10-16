@@ -1,0 +1,64 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New Council' if mode == 'create' else 'Edit Council' }}{% endblock %}
+
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:bg-slate-100' %}
+{% set back = url_for('councils.list_page') if mode == 'create' else url_for('councils.detail', council_id=council.id) %}
+
+{% block content %}
+<a href="{{ back }}" class="text-sm text-blue-700 hover:underline">&larr; Back</a>
+<h1 class="mt-2 text-2xl font-extrabold tracking-tight text-blue-950">{{ 'New Council' if mode == 'create' else 'Edit Council' }}</h1>
+{{ form_errors(errors) }}
+
+<form method="post" action="{{ url_for('councils.create') if mode == 'create' else url_for('councils.edit', council_id=council.id) }}"
+      class="mt-6 max-w-2xl rounded-xl border border-slate-200 bg-white shadow-sm p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="sm:col-span-2">
+        <label for="name" class="block text-sm font-semibold text-slate-700 mb-1">Council name</label>
+        <input type="text" id="name" name="name" value="{{ form.name }}" required maxlength="150" class="{{ input_class }}"
+               placeholder="College Student Council 2026-2027">
+    </div>
+    <div>
+        <label for="department_id" class="block text-sm font-semibold text-slate-700 mb-1">Department</label>
+        <select id="department_id" name="department_id" required {{ 'disabled' if locked }} class="{{ input_class }}">
+            <option value="">Select a department</option>
+            {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if form.department_id == d.id|string }}>{{ d.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="school_year_id" class="block text-sm font-semibold text-slate-700 mb-1">School year</label>
+        <select id="school_year_id" name="school_year_id" required {{ 'disabled' if locked }} class="{{ input_class }}">
+            <option value="">Select a school year</option>
+            {% for y in school_years %}<option value="{{ y.id }}" {{ 'selected' if form.school_year_id == y.id|string }}>{{ y.name }}</option>{% endfor %}
+        </select>
+    </div>
+    {% if locked %}
+    <p class="sm:col-span-2 text-xs text-amber-700">Officers were already assigned, so the department and school year are locked.</p>
+    {% endif %}
+    <div>
+        <label for="term_start" class="block text-sm font-semibold text-slate-700 mb-1">Term starts</label>
+        <input type="date" id="term_start" name="term_start" value="{{ form.term_start }}" required class="{{ input_class }}">
+    </div>
+    <div>
+        <label for="term_end" class="block text-sm font-semibold text-slate-700 mb-1">Term ends</label>
+        <input type="date" id="term_end" name="term_end" value="{{ form.term_end }}" required class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="election_id" class="block text-sm font-semibold text-slate-700 mb-1">Linked election <span class="text-slate-400">(optional)</span></label>
+        <select id="election_id" name="election_id" class="{{ input_class }}">
+            <option value="">No election (appointed council)</option>
+            {% for e in elections %}<option value="{{ e.id }}" {{ 'selected' if form.election_id == e.id|string }}>{{ e.name }} ({{ e.department }}, {{ e.school_year }})</option>{% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-slate-500">Only finished elections of the same department and school year can be linked.
+            For positions that were on that ballot, only approved candidates can be assigned.</p>
+    </div>
+
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">
+            {{ 'Create Council' if mode == 'create' else 'Save Changes' }}
+        </button>
+        <a href="{{ back }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

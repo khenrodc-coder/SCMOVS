@@ -1,0 +1,89 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'Edit Candidate' if mode == 'edit' else 'Register Candidate' }}{% endblock %}
+
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+
+{% block content %}
+<a href="{{ url_for('candidates.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to candidates</a>
+<h1 class="mt-2 text-2xl font-extrabold tracking-tight text-blue-950">{{ 'Edit Candidate' if mode == 'edit' else 'Register Candidate' }}</h1>
+
+{% if mode == 'choose' %}
+<p class="mt-1 text-sm text-slate-600">Step 1 of 2: choose the election. Only draft and scheduled elections accept candidates.</p>
+{% if elections %}
+<form method="get" action="{{ url_for('candidates.register') }}"
+      class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+    <div>
+        <label for="election" class="block text-sm font-semibold text-slate-700 mb-1">Election</label>
+        <select id="election" name="election" required class="{{ input_class }}">
+            <option value="">Select an election</option>
+            {% for e in elections %}<option value="{{ e.id }}">{{ e.name }} ({{ e.department }}, {{ e.school_year }})</option>{% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">Continue</button>
+</form>
+{% else %}
+<div class="mt-6 max-w-lg bg-amber-50 border border-amber-300 border-l-4 border-l-amber-400 text-amber-900 rounded-lg px-4 py-3 text-sm">
+    There is no draft or scheduled election. <a href="{{ url_for('elections.create') }}" class="underline">Create an election</a> first.
+</div>
+{% endif %}
+
+{% else %}
+<p class="mt-1 text-sm text-slate-600">Election: <strong>{{ election.name }}</strong></p>
+{{ form_errors(errors) }}
+
+{% if not positions %}
+<div class="mt-6 max-w-lg bg-amber-50 border border-amber-300 border-l-4 border-l-amber-400 text-amber-900 rounded-lg px-4 py-3 text-sm">
+    This election has no positions yet.
+    <a href="{{ url_for('elections.detail', election_id=election.id) }}" class="underline">Add positions</a> first.
+</div>
+{% else %}
+<form method="post"
+      action="{{ url_for('candidates.register', election=election.id) if mode == 'create' else url_for('candidates.edit', candidate_id=candidate.id) }}"
+      class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if mode == 'create' %}
+    <div>
+        <label for="student_number" class="block text-sm font-semibold text-slate-700 mb-1">Student ID</label>
+        <input type="text" id="student_number" name="student_number" value="{{ form.student_number }}" required maxlength="30"
+               autocomplete="off" class="{{ input_class }}">
+        <p class="mt-1 text-xs text-slate-500">The student must be active, in this election's department, and in its school year.</p>
+    </div>
+    {% else %}
+    <div>
+        <span class="block text-sm font-semibold text-slate-700 mb-1">Candidate</span>
+        <p class="px-3 py-2 bg-slate-100 rounded-lg text-sm">{{ candidate.first_name }} {{ candidate.last_name }} ({{ candidate.student_number }})</p>
+    </div>
+    {% endif %}
+
+    <div>
+        <label for="position_id" class="block text-sm font-semibold text-slate-700 mb-1">Position</label>
+        <select id="position_id" name="position_id" required class="{{ input_class }}">
+            <option value="">Select a position</option>
+            {% for p in positions %}<option value="{{ p.id }}" {{ 'selected' if form.position_id == p.id|string }}>{{ p.name }}</option>{% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label for="platform" class="block text-sm font-semibold text-slate-700 mb-1">Platform <span class="text-slate-400">(optional)</span></label>
+        <textarea id="platform" name="platform" rows="5" maxlength="2000" class="{{ input_class }}">{{ form.platform }}</textarea>
+    </div>
+
+    {% if mode == 'edit' and candidate.status == 'approved' %}
+    <p class="text-xs text-amber-700">This candidate is approved. Saving changes removes the approval, and a new review is needed.</p>
+    {% elif mode == 'create' %}
+    <p class="text-xs text-slate-500">New candidates start as Pending and must be approved before they appear on the ballot.</p>
+    {% endif %}
+
+    <div class="flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">
+            {{ 'Register Candidate' if mode == 'create' else 'Save Changes' }}
+        </button>
+        <a href="{{ url_for('candidates.list_page') if mode == 'create' else url_for('candidates.detail', candidate_id=candidate.id) }}"
+           class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

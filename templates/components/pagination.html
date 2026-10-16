@@ -1,0 +1,23 @@
+{# Usage: {{ pagination('admin.users_list', page, pages, filters, total) }}
+   "filters" must NOT contain a "page" key. #}
+{% macro pagination(endpoint, page, pages, filters, total) %}
+{% if pages > 1 %}
+<nav class="mt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-sm" aria-label="Pagination">
+    <span class="text-slate-500">Page {{ page }} of {{ pages }} &middot; {{ total }} total</span>
+    <div class="flex flex-wrap gap-1">
+        {% if page > 1 %}
+        <a href="{{ url_for(endpoint, page=page - 1, **filters) }}"
+           class="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition hover:bg-slate-50">Previous</a>
+        {% endif %}
+        {% for n in range([1, page - 2]|max, [pages, page + 2]|min + 1) %}
+        <a href="{{ url_for(endpoint, page=n, **filters) }}"
+           class="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border px-3 font-medium transition {{ 'bg-blue-900 text-white border-blue-900 shadow-sm' if n == page else 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50' }}" {{ 'aria-current="page"' if n == page }}>{{ n }}</a>
+        {% endfor %}
+        {% if page < pages %}
+        <a href="{{ url_for(endpoint, page=page + 1, **filters) }}"
+           class="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-lg border border-slate-300 bg-white px-3 font-medium text-slate-700 transition hover:bg-slate-50">Next</a>
+        {% endif %}
+    </div>
+</nav>
+{% endif %}
+{% endmacro %}

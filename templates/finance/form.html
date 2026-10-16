@@ -1,0 +1,81 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New' if mode == 'create' else 'Edit' }} {{ cfg.label }}{% endblock %}
+
+{% set bp = cfg.blueprint %}
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+{% set back = url_for(bp ~ '.list_page') if mode == 'create' else url_for(bp ~ '.detail', item_id=item.id) %}
+
+{% block content %}
+<a href="{{ back }}" class="text-sm text-blue-700 hover:underline">&larr; Back</a>
+<h1 class="mt-2 text-2xl font-bold text-blue-900">{{ 'New' if mode == 'create' else 'Edit' }} {{ cfg.label }}</h1>
+{{ form_errors(errors) }}
+
+{% if mode == 'edit' and item.status == 'rejected' %}
+<div class="mt-4 max-w-2xl bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm">
+    This was rejected{% if item.review_remarks %}: <em>{{ item.review_remarks }}</em>{% endif %}. Saving your changes makes it a draft again, so you can submit it for a new review.
+</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data"
+      action="{{ url_for(bp ~ '.create') if mode == 'create' else url_for(bp ~ '.edit', item_id=item.id) }}"
+      class="mt-6 max-w-2xl bg-white border border-slate-200 rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if mode == 'create' %}
+    <div class="sm:col-span-2">
+        <label for="activity" class="block text-sm font-medium mb-1">Approved event or project</label>
+        <select id="activity" name="activity" required class="{{ input_class }}">
+            <option value="">Select an activity</option>
+            {% for a in activities %}<option value="{{ a.key }}" {{ 'selected' if activity_key == a.key }}>{{ a.title }} ({{ a.kind }}, {{ a.council_name }})</option>{% endfor %}
+        </select>
+        <p class="mt-1 text-xs text-slate-500">Only approved events and projects of your council are listed.</p>
+    </div>
+    {% else %}
+    <p class="sm:col-span-2 text-sm text-slate-600">For {{ item.activity_kind }}: <strong>{{ item.activity_title }}</strong></p>
+    {% endif %}
+
+    {% if cfg.kind == 'budget' %}
+    <div class="sm:col-span-2">
+        <label for="requested_amount" class="block text-sm font-medium mb-1">Requested amount (&#8369;)</label>
+        <input type="text" inputmode="decimal" id="requested_amount" name="requested_amount" value="{{ form.requested_amount }}" required maxlength="14" class="{{ input_class }}" placeholder="5000.00">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="breakdown" class="block text-sm font-medium mb-1">Budget breakdown</label>
+        <textarea id="breakdown" name="breakdown" rows="4" required maxlength="5000" class="{{ input_class }}" placeholder="Food: 2000, Materials: 1500, ...">{{ form.breakdown }}</textarea>
+    </div>
+    <div class="sm:col-span-2">
+        <label for="description" class="block text-sm font-medium mb-1">Description</label>
+        <textarea id="description" name="description" rows="3" required maxlength="5000" class="{{ input_class }}">{{ form.description }}</textarea>
+    </div>
+    {% else %}
+    <div>
+        <label for="amount" class="block text-sm font-medium mb-1">Amount (&#8369;)</label>
+        <input type="text" inputmode="decimal" id="amount" name="amount" value="{{ form.amount }}" required maxlength="14" class="{{ input_class }}" placeholder="350.00">
+    </div>
+    <div>
+        <label for="expense_date" class="block text-sm font-medium mb-1">Date of expense</label>
+        <input type="date" id="expense_date" name="expense_date" value="{{ form.expense_date }}" required class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="description" class="block text-sm font-medium mb-1">Description</label>
+        <input type="text" id="description" name="description" value="{{ form.description }}" required maxlength="500" class="{{ input_class }}">
+    </div>
+    {% endif %}
+
+    <div class="sm:col-span-2">
+        <label for="document" class="block text-sm font-medium mb-1">{{ 'Receipt' if cfg.kind == 'expense' else 'Supporting document' }}
+            <span class="text-slate-400">({{ 'required to submit' if cfg.kind == 'expense' else 'optional' }})</span></label>
+        <input type="file" id="document" name="document" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+               class="block w-full text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white">
+        <p class="mt-1 text-xs text-slate-500">PDF, PNG or JPG, up to 5 MB.
+            {% if mode == 'edit' and item.doc_name %}Current file: <strong>{{ item.doc_name }}</strong>. Choose a new file only to replace it.{% endif %}</p>
+    </div>
+
+    <p class="sm:col-span-2 text-xs text-slate-500">Saving keeps it as a draft. You submit it for review from its page.</p>
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-lg">Save Draft</button>
+        <a href="{{ back }}" class="border border-slate-300 bg-white hover:bg-slate-100 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Councils{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Councils</h1>
+        <p class="text-sm text-slate-600">{{ total }} council{{ '' if total == 1 else 's' }} found{% if not status %} (archived councils are hidden){% endif %}. This is also the council history.</p>
+    </div>
+    <a href="{{ url_for('councils.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-plus mr-1"></i>New Council
+    </a>
+</div>
+
+<form method="get" action="{{ url_for('councils.list_page') }}"
+      class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search council name"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    <select name="department" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All departments</option>
+        {% for d in options.departments %}<option value="{{ d.id }}" {{ 'selected' if department == d.id }}>{{ d.name }}</option>{% endfor %}
+    </select>
+    <select name="school_year" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All school years</option>
+        {% for y in options.school_years %}<option value="{{ y.id }}" {{ 'selected' if school_year == y.id }}>{{ y.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All (except archived)</option>
+        {% for st in statuses %}<option value="{{ st }}" {{ 'selected' if status == st }}>{{ st|capitalize }}</option>{% endfor %}
+    </select>
+    <div class="md:col-span-4 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+        <a href="{{ url_for('councils.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    {% if councils %}
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Council</th><th class="px-4 py-2">Department</th><th class="px-4 py-2">School year</th>
+                <th class="px-4 py-2">Term</th><th class="px-4 py-2">Officers</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for c in councils %}
+            <tr class="align-top">
+                <td class="px-4 py-2 font-medium">{{ c.name }}{% if c.election_name %}<span class="block text-xs font-normal text-slate-500">From: {{ c.election_name }}</span>{% endif %}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ c.department }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ c.school_year }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ c.term_start }}<br>to {{ c.term_end }}</td>
+                <td class="px-4 py-2">{{ c.officer_count }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ status_badge(c.status) }}
+                    {% if c.overdue %}<span class="block mt-1 text-xs text-amber-700">Term ended, please complete it</span>{% endif %}</td>
+                <td class="px-4 py-2"><a href="{{ url_for('councils.detail', council_id=c.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-800" title="Manage council" aria-label="Manage council"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="sr-only">Manage council</span></a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-people-group text-3xl"></i><p class="mt-2">No councils found.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination('councils.list_page', page, pages, filters, total) }}
+{% endblock %}

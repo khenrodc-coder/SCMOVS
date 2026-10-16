@@ -1,0 +1,61 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}{{ document.title }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('documents.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to documents</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">{{ document.title }}</h1>
+        <p class="mt-1 text-sm text-slate-600">{{ document.council_name }} &middot; {{ category_labels[document.category] }}</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+        {% if document.is_archived %}<span class="text-xs bg-slate-200 text-slate-700 rounded-full px-2.5 py-1 font-medium">Archived</span>{% endif %}
+        <a href="{{ url_for('documents.download', document_id=document.id) }}" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-download mr-1"></i>Download</a>
+        {% if can_manage and not document.is_archived %}<a href="{{ url_for('documents.edit', document_id=document.id) }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-3 py-2 rounded-lg">Edit</a>{% endif %}
+    </div>
+</div>
+
+{% if not can_manage %}
+<div class="mt-4 bg-slate-100 border border-slate-300 text-slate-700 rounded-lg px-4 py-3 text-sm">
+    You can view and download this document, but only officers of an active council (or the Super Admin) can change it.</div>
+{% endif %}
+
+<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <dl class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200 text-sm">
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">File</dt><dd class="font-medium text-right">{{ document.original_filename }} ({{ document.file_size|filesize }})</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Uploaded</dt><dd class="font-medium text-right">{{ document.created_at|dt }} by {{ document.uploaded_by_name }}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Linked to</dt>
+            <dd class="font-medium text-right">
+                {% if document.link_type == 'event' %}Event: <a class="text-blue-700 hover:underline" href="{{ url_for('events.detail', item_id=document.event_id) }}">{{ document.link_title }}</a>
+                {% elif document.link_type == 'project' %}Project: <a class="text-blue-700 hover:underline" href="{{ url_for('projects.detail', item_id=document.project_id) }}">{{ document.link_title }}</a>
+                {% elif document.link_type == 'meeting' %}Meeting: <a class="text-blue-700 hover:underline" href="{{ url_for('meetings.detail', meeting_id=document.meeting_id) }}">{{ document.link_title }}</a>
+                {% else %}General council record{% endif %}
+            </dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Access</dt><dd class="font-medium">Private (council officers only)</dd></div>
+    </dl>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-sm">
+        <h2 class="font-semibold">Description</h2>
+        {% if document.description %}<p class="mt-1 whitespace-pre-line text-slate-700">{{ document.description }}</p>
+        {% else %}<p class="mt-1 text-slate-500">No description.</p>{% endif %}
+    </div>
+</div>
+
+{% if can_manage %}
+<div class="mt-4 bg-white border border-slate-200 rounded-xl p-4">
+    <h2 class="font-semibold">Archive</h2>
+    <p class="mt-1 text-sm text-slate-600">Documents are never deleted. Archiving hides a document from the default list; it can be restored at any time.</p>
+    {% if document.is_archived %}
+    <form method="post" action="{{ url_for('documents.change_state', document_id=document.id, action='restore') }}" class="mt-3" data-confirm="Restore this document?">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-lg">Restore document</button>
+    </form>
+    {% else %}
+    <form method="post" action="{{ url_for('documents.change_state', document_id=document.id, action='archive') }}" class="mt-3" data-confirm="Archive this document? It will be hidden from the default list.">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="bg-slate-600 hover:bg-slate-500 text-white text-sm font-semibold px-4 py-2 rounded-lg">Archive document</button>
+    </form>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

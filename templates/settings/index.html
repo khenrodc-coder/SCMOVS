@@ -1,0 +1,58 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}Settings{% endblock %}
+
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+
+{% block content %}
+<div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">System Settings</h1>
+    <p class="text-sm text-slate-600">Each section is saved on its own. Every change is written to the audit log.</p>
+</div>
+
+<div class="mt-6 space-y-6 max-w-3xl">
+{% for code, title in categories %}
+    <section id="{{ code }}" class="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
+        <h2 class="text-lg font-semibold">{{ title }}</h2>
+
+        {% if open_category == code and errors %}
+        <div class="mt-3 bg-red-50 border border-red-300 border-l-4 border-l-red-500 text-red-900 rounded-lg px-4 py-3 text-sm" role="alert">
+            <ul class="list-disc pl-5 space-y-1">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+        </div>
+        {% endif %}
+
+        {% if code == 'academic' %}
+        <p class="mt-2 text-sm text-slate-600">Academic structure has its own pages.</p>
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <a href="{{ url_for('departments.list_page') }}" class="border border-slate-200 rounded-lg p-3 hover:bg-slate-50">
+                <i class="fa-solid fa-building-columns text-blue-900 mr-1"></i><strong>Departments</strong>
+                <span class="block text-slate-500">{{ academic.departments }} active</span></a>
+            <a href="{{ url_for('school_years.list_page') }}" class="border border-slate-200 rounded-lg p-3 hover:bg-slate-50">
+                <i class="fa-solid fa-calendar-days text-blue-900 mr-1"></i><strong>School years</strong>
+                <span class="block text-slate-500">Active: {{ academic.active_year or 'none' }}</span></a>
+        </div>
+        {% else %}
+        <form method="post" action="{{ url_for('settings.save', category=code) }}" class="mt-3 space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% for d in definitions if d.category == code %}
+            <div>
+                {% if d.type == 'bool' %}
+                <label class="inline-flex items-start gap-3 text-sm">
+                    <input type="checkbox" name="{{ d.key }}" value="true" {{ 'checked' if values[d.key] }} class="mt-1 h-4 w-4 accent-blue-900">
+                    <span><span class="font-medium">{{ d.label }}</span><span class="block text-xs text-slate-500">{{ d.help }}</span></span>
+                </label>
+                {% else %}
+                <label for="{{ d.key }}" class="block text-sm font-semibold text-slate-700 mb-1">{{ d.label }}</label>
+                <input type="{{ 'number' if d.type == 'int' else 'text' }}" id="{{ d.key }}" name="{{ d.key }}" value="{{ values[d.key] }}"
+                       {% if d.type == 'int' %}min="{{ d.min }}" max="{{ d.max }}"{% else %}maxlength="{{ d.max }}"{% endif %}
+                       {{ 'required' if d.min }} class="{{ input_class }}">
+                <p class="mt-1 text-xs text-slate-500">{{ d.help }}</p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-5 py-2 rounded-lg">Save {{ title }}</button>
+        </form>
+        {% endif %}
+    </section>
+{% endfor %}
+</div>
+{% endblock %}

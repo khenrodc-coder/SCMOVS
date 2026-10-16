@@ -1,0 +1,98 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New Student' if mode == 'create' else 'Edit Student' }}{% endblock %}
+
+{% set locked = mode == 'edit' and student.election_records > 0 %}
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:bg-slate-100' %}
+
+{% block content %}
+<a href="{{ url_for('students.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to students</a>
+<h1 class="mt-2 text-2xl font-extrabold tracking-tight text-blue-950">{{ 'New Student' if mode == 'create' else 'Edit Student' }}</h1>
+{{ form_errors(errors) }}
+
+<form method="post"
+      action="{{ url_for('students.create') if mode == 'create' else url_for('students.edit', student_id=student.id) }}"
+      class="mt-6 max-w-2xl rounded-xl border border-slate-200 bg-white shadow-sm p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="sm:col-span-2">
+        {% if mode == 'create' %}
+        <label for="student_number" class="block text-sm font-semibold text-slate-700 mb-1">Official Student ID</label>
+        <input type="text" id="student_number" name="student_number" value="{{ form.student_number }}" required
+               maxlength="30" autocomplete="off" class="{{ input_class }}">
+        <p class="mt-1 text-xs text-slate-500">Must be unique. The student logs in with this ID and it cannot be changed later.</p>
+        {% else %}
+        <span class="block text-sm font-semibold text-slate-700 mb-1">Student ID</span>
+        <p class="px-3 py-2 bg-slate-100 rounded-lg text-sm">{{ student.student_number }}</p>
+        {% endif %}
+    </div>
+
+    <div>
+        <label for="first_name" class="block text-sm font-semibold text-slate-700 mb-1">First name</label>
+        <input type="text" id="first_name" name="first_name" value="{{ form.first_name }}" required maxlength="60" class="{{ input_class }}">
+    </div>
+    <div>
+        <label for="middle_name" class="block text-sm font-semibold text-slate-700 mb-1">Middle name <span class="text-slate-400">(optional)</span></label>
+        <input type="text" id="middle_name" name="middle_name" value="{{ form.middle_name }}" maxlength="60" class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="last_name" class="block text-sm font-semibold text-slate-700 mb-1">Last name</label>
+        <input type="text" id="last_name" name="last_name" value="{{ form.last_name }}" required maxlength="60" class="{{ input_class }}">
+    </div>
+
+    <div>
+        <label for="department_id" class="block text-sm font-semibold text-slate-700 mb-1">Department</label>
+        <select id="department_id" name="department_id" required {{ 'disabled' if locked }} class="{{ input_class }}">
+            <option value="">Select a department</option>
+            {% for d in departments %}
+            <option value="{{ d.id }}" {{ 'selected' if form.department_id == d.id|string }}>{{ d.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="school_year_id" class="block text-sm font-semibold text-slate-700 mb-1">School year</label>
+        <select id="school_year_id" name="school_year_id" required {{ 'disabled' if locked }} class="{{ input_class }}">
+            <option value="">Select a school year</option>
+            {% for y in school_years %}
+            <option value="{{ y.id }}" {{ 'selected' if form.school_year_id == y.id|string }}>{{ y.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% if locked %}
+    <p class="sm:col-span-2 text-xs text-amber-700">
+        This student has election records (voted or ran as a candidate), so the department and school year are locked.
+    </p>
+    {% endif %}
+
+    <div>
+        <label for="year_level" class="block text-sm font-semibold text-slate-700 mb-1">Year level</label>
+        <input type="text" id="year_level" name="year_level" value="{{ form.year_level }}" required maxlength="20"
+               list="year-levels" autocomplete="off" class="{{ input_class }}">
+        <datalist id="year-levels"></datalist>
+        <p class="mt-1 text-xs text-slate-500">Pick a suggestion for the chosen department.</p>
+    </div>
+    <div>
+        <label for="section" class="block text-sm font-semibold text-slate-700 mb-1">Section</label>
+        <input type="text" id="section" name="section" value="{{ form.section }}" required maxlength="30" class="{{ input_class }}">
+    </div>
+
+    {% if mode == 'create' %}
+    <p class="sm:col-span-2 text-xs text-slate-500">
+        A login account is created together with the student. A random temporary password is shown once after saving,
+        and the student must change it at first login.
+    </p>
+    {% endif %}
+
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">
+            {{ 'Create Student' if mode == 'create' else 'Save Changes' }}
+        </button>
+        <a href="{{ url_for('students.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script id="year-level-data" type="application/json">{{ year_level_map|tojson }}</script>
+<script src="{{ url_for('static', filename='js/students.js') }}"></script>
+{% endblock %}

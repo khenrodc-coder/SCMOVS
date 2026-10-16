@@ -1,0 +1,51 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'Schedule' if mode == 'create' else 'Edit' }} Meeting{% endblock %}
+
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+{% set back = url_for('meetings.list_page') if mode == 'create' else url_for('meetings.detail', meeting_id=meeting.id) %}
+
+{% block content %}
+<a href="{{ back }}" class="text-sm text-blue-700 hover:underline">&larr; Back</a>
+<h1 class="mt-2 text-2xl font-bold text-blue-900">{{ 'Schedule a Meeting' if mode == 'create' else 'Edit Meeting' }}</h1>
+{{ form_errors(errors) }}
+
+<form method="post" action="{{ url_for('meetings.create') if mode == 'create' else url_for('meetings.edit', meeting_id=meeting.id) }}"
+      class="mt-6 max-w-2xl bg-white border border-slate-200 rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if mode == 'create' %}
+    <div class="sm:col-span-2">
+        <label for="council_id" class="block text-sm font-medium mb-1">Council</label>
+        <select id="council_id" name="council_id" required class="{{ input_class }}">
+            <option value="">Choose...</option>
+            {% for c in councils %}<option value="{{ c.id }}" {{ 'selected' if form.council_id == c.id|string }}>{{ c.name }}</option>{% endfor %}
+        </select>
+    </div>
+    {% else %}
+    <p class="sm:col-span-2 text-sm text-slate-600">Council: <strong>{{ meeting.council_name }}</strong></p>
+    {% endif %}
+
+    <div class="sm:col-span-2">
+        <label for="title" class="block text-sm font-medium mb-1">Title</label>
+        <input type="text" id="title" name="title" value="{{ form.title }}" required maxlength="200" class="{{ input_class }}" placeholder="e.g. Monthly general assembly">
+    </div>
+    <div>
+        <label for="meeting_at" class="block text-sm font-medium mb-1">Date and time</label>
+        <input type="datetime-local" id="meeting_at" name="meeting_at" value="{{ form.meeting_at }}" required class="{{ input_class }}">
+    </div>
+    <div>
+        <label for="location" class="block text-sm font-medium mb-1">Location</label>
+        <input type="text" id="location" name="location" value="{{ form.location }}" required maxlength="200" class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="agenda" class="block text-sm font-medium mb-1">Agenda <span class="text-slate-400">(optional, one item per line)</span></label>
+        <textarea id="agenda" name="agenda" rows="6" maxlength="5000" class="{{ input_class }}">{{ form.agenda }}</textarea>
+    </div>
+
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-lg">{{ 'Schedule' if mode == 'create' else 'Save Changes' }}</button>
+        <a href="{{ back }}" class="border border-slate-300 bg-white hover:bg-slate-100 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

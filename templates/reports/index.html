@@ -1,0 +1,19 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-900">Reports</h1>
+<p class="text-sm text-slate-600">Choose a report. Each one can be filtered, printed and exported to CSV. Drafts are never included.</p>
+
+{% for group, reports in groups %}
+<h2 class="mt-6 font-sans text-xs font-bold uppercase tracking-wider text-slate-500">{{ group }}</h2>
+<div class="mt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for key, title, description in reports %}
+    <a href="{{ url_for('reports.show_report', key=key) }}" class="block bg-white border border-slate-200 rounded-xl p-4 hover:border-blue-600 hover:shadow-sm transition">
+        <h3 class="font-semibold text-blue-900"><i class="fa-solid fa-file-lines mr-2 text-slate-400"></i>{{ title }}</h3>
+        <p class="mt-1 text-sm text-slate-600">{{ description }}</p>
+    </a>
+    {% endfor %}
+</div>
+{% endfor %}
+{% endblock %}

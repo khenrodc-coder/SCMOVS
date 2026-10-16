@@ -1,0 +1,76 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}{{ candidate.first_name }} {{ candidate.last_name }}{% endblock %}
+
+{% set buttons = {
+    'approve': ['Approve', 'bg-green-700 hover:bg-green-600'],
+    'reject': ['Reject', 'bg-red-700 hover:bg-red-600'],
+    'disqualify': ['Disqualify', 'bg-red-900 hover:bg-red-800'],
+    'reopen': ['Move back to pending', 'bg-slate-600 hover:bg-slate-500']
+} %}
+
+{% block content %}
+<a href="{{ url_for('candidates.list_page', election=candidate.election_id) }}" class="text-sm text-blue-700 hover:underline">&larr; Back to candidates</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">{{ candidate.first_name }}{{ ' ' ~ candidate.middle_name if candidate.middle_name }} {{ candidate.last_name }}</h1>
+        <p class="mt-1 text-sm text-slate-600">Candidate for <strong>{{ candidate.position_name }}</strong> in
+            <a href="{{ url_for('elections.detail', election_id=candidate.election_id) }}" class="text-blue-700 hover:underline">{{ candidate.election_name }}</a></p>
+    </div>
+    <div class="flex items-center gap-2">
+        {{ status_badge(candidate.status) }}
+        {% if can_edit %}<a href="{{ url_for('candidates.edit', candidate_id=candidate.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+    </div>
+</div>
+
+<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <dl class="rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200 text-sm">
+        <div class="flex justify-between px-4 py-3"><dt class="text-slate-500">Student ID</dt><dd class="font-medium">{{ candidate.student_number }}</dd></div>
+        <div class="flex justify-between px-4 py-3"><dt class="text-slate-500">Department</dt><dd class="font-medium">{{ candidate.department }}</dd></div>
+        <div class="flex justify-between px-4 py-3"><dt class="text-slate-500">Year level / section</dt><dd class="font-medium">{{ candidate.year_level }} / {{ candidate.section }}</dd></div>
+        <div class="flex justify-between px-4 py-3"><dt class="text-slate-500">Registered</dt><dd class="font-medium">{{ candidate.created_at|dt }}</dd></div>
+        <div class="flex justify-between px-4 py-3"><dt class="text-slate-500">Election status</dt><dd class="font-medium capitalize">{{ candidate.election_status|replace('_', ' ') }}</dd></div>
+    </dl>
+
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-sm">
+        <h2 class="font-semibold mb-2">Platform</h2>
+        <p class="whitespace-pre-line text-slate-700">{{ candidate.platform or 'No platform was entered.' }}</p>
+        {% if candidate.reviewed_at %}
+        <h2 class="font-semibold mt-4 mb-1">Review</h2>
+        <p class="text-slate-600">{{ candidate.status|capitalize }} by {{ candidate.reviewed_by_name or 'unknown' }} on {{ candidate.reviewed_at|dt }}</p>
+        {% endif %}
+        {% if candidate.remarks %}<p class="mt-1 text-slate-700"><span class="text-slate-500">Remarks:</span> {{ candidate.remarks }}</p>{% endif %}
+    </div>
+</div>
+
+{% set available = [] %}
+{% for action, rule in actions.items() if candidate.status in rule[0] and candidate.election_status in rule[2] %}
+    {% set _ = available.append(action) %}
+{% endfor %}
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+    <h2 class="font-semibold mb-2">Review decision</h2>
+    {% if available %}
+    <form method="post" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div>
+            <label for="remarks" class="block text-sm font-semibold text-slate-700 mb-1">Remarks <span class="text-slate-400">(required to reject or disqualify)</span></label>
+            <textarea id="remarks" name="remarks" rows="3" maxlength="500"
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]"></textarea>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% for action in available %}
+            <button type="submit" formaction="{{ url_for('candidates.review', candidate_id=candidate.id, action=action) }}"
+                    class="text-white text-sm font-semibold px-4 py-2 rounded-lg {{ buttons[action][1] }}">{{ buttons[action][0] }}</button>
+            {% endfor %}
+        </div>
+        {% if 'disqualify' in available and candidate.election_status == 'open' %}
+        <p class="text-xs text-amber-700">Voting is open. Disqualifying removes this candidate from the ballot and from the results.</p>
+        {% endif %}
+    </form>
+    {% else %}
+    <p class="text-sm text-slate-500">No review action is available for a {{ candidate.status }} candidate while the election is {{ candidate.election_status|replace('_', ' ') }}.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Archives{% endblock %}
+
+{% block content %}
+<div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Archives</h1>
+    <p class="text-sm text-slate-600">{{ total }} archive record{{ '' if total == 1 else 's' }}. Archived records are kept, never deleted, and can be restored here.</p>
+</div>
+
+<form method="get" action="{{ url_for('archives.list_page') }}"
+      class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <select name="type" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All record types</option>
+        {% for t in entity_types %}<option value="{{ t }}" {{ 'selected' if entity_type == t }}>{{ t|replace('_', ' ')|capitalize }}</option>{% endfor %}
+    </select>
+    <select name="state" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">Archived and restored</option>
+        <option value="archived" {{ 'selected' if state == 'archived' }}>Still archived</option>
+        <option value="restored" {{ 'selected' if state == 'restored' }}>Restored</option>
+    </select>
+    <div class="md:col-span-2 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">Filter</button>
+        <a href="{{ url_for('archives.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    {% if archives %}
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Type</th><th class="px-4 py-2">Record</th><th class="px-4 py-2">Archived</th>
+                <th class="px-4 py-2">Restored</th><th class="px-4 py-2">Current status</th><th class="px-4 py-2">Action</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for a in archives %}
+            <tr class="align-top">
+                <td class="px-4 py-2 whitespace-nowrap capitalize">{{ a.entity_type|replace('_', ' ') }}</td>
+                <td class="px-4 py-2 font-medium">{{ a.label or (a.entity_type|replace('_', ' ')|capitalize ~ ' #' ~ a.entity_id) }}
+                    {% if a.reason %}<span class="block text-xs font-normal text-slate-500">{{ a.reason }}</span>{% endif %}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ a.archived_at|dt }}<br>by {{ a.archived_by_name or 'unknown' }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{% if a.restored_at %}{{ a.restored_at|dt }}<br>by {{ a.restored_by_name or 'unknown' }}{% else %}-{% endif %}</td>
+                <td class="px-4 py-2">{% if a.current_status %}{{ status_badge(a.current_status) }}{% else %}-{% endif %}</td>
+                <td class="px-4 py-2">
+                    {% if a.restorable %}
+                    <form method="post" action="{{ url_for('archives.restore', archive_id=a.id) }}"
+                          data-confirm="Restore this {{ a.entity_type|replace('_', ' ') }}?">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="next" value="{{ request.full_path }}">
+                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-green-700" title="{{ 'Restore' }}" aria-label="{{ 'Restore' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Restore'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Restore' }}</span></button>
+                    </form>
+                    {% elif a.restored_at %}<span class="text-xs text-slate-500">Already restored</span>
+                    {% elif a.entity_type in ['other'] %}<span class="text-xs text-slate-500">Available with its module</span>
+                    {% else %}<span class="text-xs text-slate-500">Not archived now</span>{% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-box-archive text-3xl"></i><p class="mt-2">No archived records.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination('archives.list_page', page, pages, filters, total) }}
+{% endblock %}

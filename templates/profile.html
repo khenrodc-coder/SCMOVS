@@ -1,0 +1,18 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-extrabold tracking-tight text-blue-950">My Profile</h1>
+
+<dl class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200 text-sm">
+    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Full name</dt><dd class="font-medium">{{ current_user.full_name }}</dd></div>
+    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Username</dt><dd class="font-medium">{{ current_user.username }}</dd></div>
+    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Email</dt><dd class="font-medium">{{ current_user.email or 'Not set' }}</dd></div>
+    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Role</dt><dd class="font-medium">{{ current_user.role_display }}</dd></div>
+</dl>
+
+<a href="{{ url_for('auth.change_password') }}"
+   class="inline-block mt-6 bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-5 py-2 rounded-lg">
+    Change Password
+</a>
+{% endblock %}

@@ -1,0 +1,25 @@
+venv/
+__pycache__/
+*.pyc
+.env
+uploads/*
+!uploads/.gitkeep
+backups/
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Python temporary files and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Local uploads and private backups
+uploads/
+backups/
+
+# Local logs
+*.log

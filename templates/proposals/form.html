@@ -1,0 +1,87 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New' if mode == 'create' else 'Edit' }} {{ cfg.label }}{% endblock %}
+
+{% set bp = cfg.blueprint %}
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+{% set back = url_for(bp ~ '.list_page') if mode == 'create' else url_for(bp ~ '.detail', item_id=item.id) %}
+
+{% block content %}
+<a href="{{ back }}" class="text-sm text-blue-700 hover:underline">&larr; Back</a>
+<h1 class="mt-2 text-2xl font-bold text-blue-900">{{ 'New' if mode == 'create' else 'Edit' }} {{ cfg.label }} Proposal</h1>
+{{ form_errors(errors) }}
+
+{% if mode == 'edit' and item.status == 'rejected' %}
+<div class="mt-4 max-w-2xl bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm">
+    This proposal was rejected{% if item.review_remarks %}: <em>{{ item.review_remarks }}</em>{% endif %}. Saving your changes makes it a draft again, so you can submit it for a new review.
+</div>
+{% endif %}
+
+<form method="post" action="{{ url_for(bp ~ '.create') if mode == 'create' else url_for(bp ~ '.edit', item_id=item.id) }}"
+      class="mt-6 max-w-2xl bg-white border border-slate-200 rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if mode == 'create' %}
+        {% if councils|length > 1 %}
+        <div class="sm:col-span-2">
+            <label for="council_id" class="block text-sm font-medium mb-1">Council</label>
+            <select id="council_id" name="council_id" class="{{ input_class }}">
+                {% for c in councils %}<option value="{{ c.id }}" {{ 'selected' if form.council_id == c.id|string }}>{{ c.name }}</option>{% endfor %}
+            </select>
+        </div>
+        {% else %}
+        <input type="hidden" name="council_id" value="{{ councils[0].id }}">
+        <p class="sm:col-span-2 text-sm text-slate-600">Council: <strong>{{ councils[0].name }}</strong></p>
+        {% endif %}
+    {% else %}
+    <p class="sm:col-span-2 text-sm text-slate-600">Council: <strong>{{ item.council_name }}</strong></p>
+    {% endif %}
+
+    <div class="sm:col-span-2">
+        <label for="title" class="block text-sm font-medium mb-1">Title</label>
+        <input type="text" id="title" name="title" value="{{ form.title }}" required maxlength="200" class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="description" class="block text-sm font-medium mb-1">Description</label>
+        <textarea id="description" name="description" rows="4" required maxlength="5000" class="{{ input_class }}">{{ form.description }}</textarea>
+    </div>
+    <div class="sm:col-span-2">
+        <label for="objectives" class="block text-sm font-medium mb-1">Objectives</label>
+        <textarea id="objectives" name="objectives" rows="3" required maxlength="5000" class="{{ input_class }}">{{ form.objectives }}</textarea>
+    </div>
+
+    {% if cfg.kind == 'event' %}
+    <div>
+        <label for="event_start" class="block text-sm font-medium mb-1">Starts</label>
+        <input type="datetime-local" id="event_start" name="event_start" value="{{ form.event_start }}" required class="{{ input_class }}">
+    </div>
+    <div>
+        <label for="event_end" class="block text-sm font-medium mb-1">Ends</label>
+        <input type="datetime-local" id="event_end" name="event_end" value="{{ form.event_end }}" required class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="location" class="block text-sm font-medium mb-1">Location</label>
+        <input type="text" id="location" name="location" value="{{ form.location }}" required maxlength="200" class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="supporting_info" class="block text-sm font-medium mb-1">Supporting information <span class="text-slate-400">(optional)</span></label>
+        <textarea id="supporting_info" name="supporting_info" rows="3" maxlength="5000" class="{{ input_class }}">{{ form.supporting_info }}</textarea>
+    </div>
+    {% else %}
+    <div>
+        <label for="start_date" class="block text-sm font-medium mb-1">Starts</label>
+        <input type="date" id="start_date" name="start_date" value="{{ form.start_date }}" required class="{{ input_class }}">
+    </div>
+    <div>
+        <label for="end_date" class="block text-sm font-medium mb-1">Ends</label>
+        <input type="date" id="end_date" name="end_date" value="{{ form.end_date }}" required class="{{ input_class }}">
+    </div>
+    {% endif %}
+
+    <p class="sm:col-span-2 text-xs text-slate-500">Saving keeps it as a draft. You submit it for review from its page.</p>
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-lg">Save Draft</button>
+        <a href="{{ back }}" class="border border-slate-300 bg-white hover:bg-slate-100 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

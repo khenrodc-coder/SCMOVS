@@ -1,0 +1,137 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Students{% endblock %}
+
+{# Sortable column header #}
+{% macro th(column, label, sort_urls, sort, direction) %}
+<th class="px-4 py-2 whitespace-nowrap">
+    <a href="{{ sort_urls[column] }}" class="inline-flex items-center gap-1 hover:underline">
+        {{ label }}
+        {% if sort == column %}<i class="fa-solid fa-arrow-{{ 'up' if direction == 'asc' else 'down' }} text-xs"></i>{% endif %}
+    </a>
+</th>
+{% endmacro %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Students</h1>
+        <p class="text-sm text-slate-600">{{ total }} student{{ '' if total == 1 else 's' }} found{% if not status %} (archived students are hidden){% endif %}</p>
+    </div>
+    {% if has_permission('students.manage') %}
+    <a href="{{ url_for('students.create') }}"
+       class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-user-plus mr-1"></i>New Student
+    </a>
+    {% endif %}
+</div>
+
+<form method="get" action="{{ url_for('students.list_page') }}"
+      class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search Student ID or name"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm md:col-span-3 xl:col-span-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    <select name="department" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All departments</option>
+        {% for d in options.departments %}<option value="{{ d.id }}" {{ 'selected' if department == d.id }}>{{ d.name }}</option>{% endfor %}
+    </select>
+    <select name="year_level" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All year levels</option>
+        {% for y in options.year_levels %}<option value="{{ y }}" {{ 'selected' if year_level == y }}>{{ y }}</option>{% endfor %}
+    </select>
+    <select name="section" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All sections</option>
+        {% for s in options.sections %}<option value="{{ s }}" {{ 'selected' if section == s }}>{{ s }}</option>{% endfor %}
+    </select>
+    <select name="school_year" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All school years</option>
+        {% for y in options.school_years %}<option value="{{ y.id }}" {{ 'selected' if school_year == y.id }}>{{ y.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All (except archived)</option>
+        {% for st in ['active', 'inactive', 'graduated', 'archived'] %}
+        <option value="{{ st }}" {{ 'selected' if status == st }}>{{ st|capitalize }}</option>
+        {% endfor %}
+    </select>
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="dir" value="{{ direction }}">
+    <div class="md:col-span-3 xl:col-span-6 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+            <i class="fa-solid fa-magnifying-glass mr-1"></i>Search
+        </button>
+        <a href="{{ url_for('students.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    {% if students %}
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr>
+                {{ th('student_id', 'Student ID', sort_urls, sort, direction) }}
+                {{ th('name', 'Name', sort_urls, sort, direction) }}
+                {{ th('department', 'Department', sort_urls, sort, direction) }}
+                {{ th('year_level', 'Year level', sort_urls, sort, direction) }}
+                <th class="px-4 py-2">Section</th>
+                {{ th('school_year', 'School year', sort_urls, sort, direction) }}
+                {{ th('status', 'Status', sort_urls, sort, direction) }}
+                {% if has_permission('students.manage') %}<th class="px-4 py-2">Actions</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for s in students %}
+            {% set full_name = s.last_name ~ ', ' ~ s.first_name ~ (' ' ~ s.middle_name if s.middle_name else '') %}
+            <tr>
+                <td class="px-4 py-2 whitespace-nowrap font-medium">{{ s.student_number }}</td>
+                <td class="px-4 py-2">{{ full_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ s.department }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ s.year_level }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ s.section }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ s.school_year }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
+                    {{ status_badge(s.status) }}
+                    {% if s.status == 'active' and not s.login_enabled %}
+                    <span class="ml-1 text-xs bg-amber-100 text-amber-800 rounded-full px-2 py-1" title="The login account is switched off in User Management">Login off</span>
+                    {% endif %}
+                </td>
+                {% if has_permission('students.manage') %}
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="{{ url_for('students.edit', student_id=s.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+
+                        {% for target in transitions[s.status] %}
+                        {% set label = 'Restore' if s.status == 'archived' else status_labels[target] %}
+                        <form method="post" action="{{ url_for('students.change_status', student_id=s.id) }}"
+                              data-confirm="{{ label }} student {{ s.student_number }} ({{ full_name }})?{{ ' Their login will be switched off.' if target in ['inactive', 'graduated', 'archived'] }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="status" value="{{ target }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 {{ 'text-green-700' if target == 'active' or s.status == 'archived' else 'text-red-700' }}" title="{{ label }}" aria-label="{{ label }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get((label), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ label }}</span></button>
+                        </form>
+                        {% endfor %}
+
+                        {% if s.status != 'archived' %}
+                        <form method="post" action="{{ url_for('students.reset_password', student_id=s.id) }}"
+                              data-confirm="Reset the password of {{ s.student_number }}? A new temporary password will be generated.">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-amber-700" title="{{ 'Reset password' }}" aria-label="{{ 'Reset password' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Reset password'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Reset password' }}</span></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500">
+        <i class="fa-solid fa-user-slash text-3xl"></i>
+        <p class="mt-2">No students match your search.</p>
+    </div>
+    {% endif %}
+</div>
+
+{{ pagination('students.list_page', page, pages, filters, total) }}
+{% endblock %}

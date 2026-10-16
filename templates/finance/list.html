@@ -1,0 +1,67 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}{{ cfg.plural }}{% endblock %}
+
+{% set bp = cfg.blueprint %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">{{ cfg.plural }}</h1>
+        <p class="text-sm text-slate-600">{{ total }} found. Money can only be requested for approved events and projects.</p>
+    </div>
+    {% if can_create %}
+    <a href="{{ url_for(bp ~ '.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-plus mr-1"></i>New {{ cfg.label }}
+    </a>
+    {% endif %}
+</div>
+
+<form method="get" action="{{ url_for(bp ~ '.list_page') }}"
+      class="mt-4 bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search activity or description"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+    {% if is_admin %}
+    <select name="council" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All councils</option>
+        {% for c in options.councils %}<option value="{{ c.id }}" {{ 'selected' if council == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm">
+        <option value="">All statuses</option>
+        {% for st in statuses %}<option value="{{ st }}" {{ 'selected' if status == st }}>{{ st|replace('_', ' ')|capitalize }}</option>{% endfor %}
+    </select>
+    <div class="flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+        <a href="{{ url_for(bp ~ '.list_page') }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 bg-white border border-slate-200 rounded-xl overflow-x-auto">
+    {% if items %}
+    <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-left">
+            <tr><th class="px-4 py-2">For</th><th class="px-4 py-2">Council</th><th class="px-4 py-2 text-right">Amount</th>
+                <th class="px-4 py-2">Author</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+        {% for i in items %}
+            <tr class="align-top">
+                <td class="px-4 py-2 font-medium">{{ i.activity_title }}<span class="block text-xs font-normal text-slate-500"><span class="capitalize">{{ i.activity_kind }}</span> &middot; {{ i.description|truncate(70) }}</span></td>
+                <td class="px-4 py-2">{{ i.council_name }}</td>
+                <td class="font-num px-4 py-2 text-right whitespace-nowrap">{{ i.amount|money }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ i.owner_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ status_badge(i.status) }}</td>
+                <td class="px-4 py-2"><a href="{{ url_for(bp ~ '.detail', item_id=i.id) }}" class="text-blue-700 hover:underline">{{ 'Review' if is_admin and i.status in ['submitted', 'under_review'] else 'View' }}</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-coins text-3xl"></i><p class="mt-2">No {{ cfg.plural|lower }} found.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination(bp ~ '.list_page', page, pages, filters, total) }}
+{% endblock %}

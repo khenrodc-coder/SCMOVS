@@ -1,0 +1,99 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/icons.html" import password_toggle %}
+{% block title %}{{ 'New User' if mode == 'create' else 'Edit User' }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('admin.users_list') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to users</a>
+<h1 class="mt-2 text-2xl font-extrabold tracking-tight text-blue-950">{{ 'New User' if mode == 'create' else 'Edit User' }}</h1>
+
+{% if errors %}
+<div class="mt-4 max-w-lg bg-red-50 border border-red-300 border-l-4 border-l-red-500 text-red-900 rounded-lg px-4 py-3 text-sm">
+    <ul class="list-disc pl-5 space-y-1">
+        {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<form method="post"
+      action="{{ url_for('admin.user_create') if mode == 'create' else url_for('admin.user_edit', user_id=target.id) }}"
+      class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if mode == 'create' %}
+    <div>
+        <label for="username" class="block text-sm font-semibold text-slate-700 mb-1">Username</label>
+        <input type="text" id="username" name="username" value="{{ form.username }}" required maxlength="50"
+               autocomplete="off"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <p class="mt-1 text-xs text-slate-500">3-50 characters: letters, numbers, dot, underscore, hyphen. Cannot be changed later.</p>
+    </div>
+    {% else %}
+    <div>
+        <span class="block text-sm font-semibold text-slate-700 mb-1">Username</span>
+        <p class="px-3 py-2 bg-slate-100 rounded-lg text-sm">{{ target.username }}</p>
+    </div>
+    {% endif %}
+
+    <div>
+        <label for="full_name" class="block text-sm font-semibold text-slate-700 mb-1">Full name</label>
+        <input type="text" id="full_name" name="full_name" value="{{ form.full_name }}" required maxlength="120"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+
+    <div>
+        <label for="email" class="block text-sm font-semibold text-slate-700 mb-1">Email <span class="text-slate-400">(optional)</span></label>
+        <input type="email" id="email" name="email" value="{{ form.email }}" maxlength="120"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+
+    <div>
+        <label for="role" class="block text-sm font-semibold text-slate-700 mb-1">Role</label>
+        <select id="role" name="role" required {{ 'disabled' if editing_self }}
+                class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 disabled:bg-slate-100 bg-white min-h-[44px]">
+            {% if mode == 'create' %}<option value="">Select a role</option>{% endif %}
+            {% for r in role_options %}
+            <option value="{{ r.name }}" {{ 'selected' if form.role == r.name }}>{{ r.display_name }}</option>
+            {% endfor %}
+        </select>
+        {% if editing_self %}
+            <p class="mt-1 text-xs text-slate-500">You cannot change your own role.</p>
+        {% elif mode == 'create' %}
+            <p class="mt-1 text-xs text-slate-500">Student accounts are created with a student record (Student ID, department), not here.</p>
+        {% elif target.has_student %}
+            <p class="mt-1 text-xs text-slate-500">This user has a student record, so only Student or Council Officer can be assigned.</p>
+        {% endif %}
+        {% if mode == 'edit' and target.active_assignments %}
+            <p class="mt-1 text-xs text-amber-700">This user has an active council assignment. The role stays Council Officer until it ends.</p>
+        {% endif %}
+    </div>
+
+    {% if mode == 'create' %}
+    <div>
+        <label for="password" class="block text-sm font-semibold text-slate-700 mb-1">Initial password</label>
+        <div class="relative">
+        <input type="password" id="password" name="password" required maxlength="128" autocomplete="new-password"
+               class="pr-11 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        {{ password_toggle('password') }}
+    </div>
+        <p class="mt-1 text-xs text-slate-500">Letters and numbers required. The user must change it at first login.</p>
+    </div>
+    <div>
+        <label for="confirm_password" class="block text-sm font-semibold text-slate-700 mb-1">Confirm password</label>
+        <div class="relative">
+        <input type="password" id="confirm_password" name="confirm_password" required maxlength="128"
+               autocomplete="new-password"
+               class="pr-11 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        {{ password_toggle('confirm_password') }}
+    </div>
+    </div>
+    {% endif %}
+
+    <div class="flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">
+            {{ 'Create User' if mode == 'create' else 'Save Changes' }}
+        </button>
+        <a href="{{ url_for('admin.users_list') }}"
+           class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

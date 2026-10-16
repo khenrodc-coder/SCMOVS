@@ -1,0 +1,67 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Meetings{% endblock %}
+
+{% set field = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">Meetings</h1>
+        <p class="text-sm text-slate-600">{{ total }} meeting{{ '' if total == 1 else 's' }} found. Open a meeting to record attendance, minutes and files.</p>
+    </div>
+    {% if can_create %}
+    <a href="{{ url_for('meetings.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-plus mr-1"></i>Schedule Meeting</a>
+    {% endif %}
+</div>
+
+<form method="get" action="{{ url_for('meetings.list_page') }}" class="mt-4 bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search title or location" class="{{ field }} md:col-span-2">
+    <select name="status" class="{{ field }}">
+        <option value="">All statuses</option>
+        {% for st in statuses %}<option value="{{ st }}" {{ 'selected' if filters.status == st }}>{{ st|capitalize }}</option>{% endfor %}
+    </select>
+    {% if councils %}
+    <select name="council" class="{{ field }}">
+        <option value="">All councils</option>
+        {% for c in councils %}<option value="{{ c.id }}" {{ 'selected' if filters.council == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <label class="text-xs text-slate-500">Meeting date from <input type="date" name="date_from" value="{{ filters.date_from }}" class="{{ field }} w-full"></label>
+    <label class="text-xs text-slate-500">Meeting date to <input type="date" name="date_to" value="{{ filters.date_to }}" class="{{ field }} w-full"></label>
+    <div class="md:col-span-4 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+        <a href="{{ url_for('meetings.list_page') }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 bg-white border border-slate-200 rounded-xl overflow-x-auto">
+    {% if items %}
+    <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-left">
+            <tr><th class="px-4 py-2">Meeting</th><th class="px-4 py-2">Council</th><th class="px-4 py-2">When</th><th class="px-4 py-2">Location</th>
+                <th class="px-4 py-2">Records</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+        {% for m in items %}
+            <tr class="align-top">
+                <td class="px-4 py-2 font-medium">{{ m.title }}</td>
+                <td class="px-4 py-2">{{ m.council_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ m.meeting_at|dt }}</td>
+                <td class="px-4 py-2">{{ m.location }}</td>
+                <td class="px-4 py-2 text-xs text-slate-600 whitespace-nowrap">
+                    {{ 'Attendance' if m.attendance_count else 'No attendance' }}<br>{{ 'Minutes' if m.has_minutes else 'No minutes' }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ status_badge(m.status) }}</td>
+                <td class="px-4 py-2"><a href="{{ url_for('meetings.detail', meeting_id=m.id) }}" class="text-blue-700 hover:underline">Open</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-people-roof text-3xl"></i><p class="mt-2">No meetings found.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination('meetings.list_page', page, pages, filters, total) }}
+{% endblock %}

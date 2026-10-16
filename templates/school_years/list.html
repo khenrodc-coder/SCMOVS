@@ -1,0 +1,71 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}School Years{% endblock %}
+
+{# One small confirm-form per action button #}
+{% macro action_button(year, action, label, color, message) %}
+<form method="post" action="{{ url_for('school_years.change_status', year_id=year.id, action=action) }}" data-confirm="{{ message }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 {{ color }}" title="{{ label }}" aria-label="{{ label }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get((label), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ label }}</span></button>
+</form>
+{% endmacro %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">School Years</h1>
+        <p class="text-sm text-slate-600">Only one school year can be Active at a time.</p>
+    </div>
+    <a href="{{ url_for('school_years.create') }}"
+       class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-plus mr-1"></i>New School Year
+    </a>
+</div>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">School year</th><th class="px-4 py-2">Start</th><th class="px-4 py-2">End</th>
+                <th class="px-4 py-2">Students</th><th class="px-4 py-2">Elections</th>
+                <th class="px-4 py-2">Status</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for y in years %}
+            <tr>
+                <td class="px-4 py-2 font-medium">{{ y.name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ y.start_date }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ y.end_date }}</td>
+                <td class="px-4 py-2">{{ y.student_count }}</td>
+                <td class="px-4 py-2">{{ y.election_count }}</td>
+                <td class="px-4 py-2">{{ status_badge(y.status) }}</td>
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        {% if y.status != 'archived' %}
+                        <a href="{{ url_for('school_years.edit', year_id=y.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                        {% endif %}
+                        {% if y.status in ('upcoming', 'closed') %}
+                            {{ action_button(y, 'activate', 'Set active', 'text-green-700', 'Make ' ~ y.name ~ ' the active school year?') }}
+                        {% endif %}
+                        {% if y.status == 'active' %}
+                            {{ action_button(y, 'close', 'Close', 'text-amber-700', 'Close school year ' ~ y.name ~ '?') }}
+                        {% endif %}
+                        {% if y.status == 'closed' %}
+                            {{ action_button(y, 'archive', 'Archive', 'text-red-700', 'Archive school year ' ~ y.name ~ '? It will become read-only.') }}
+                        {% endif %}
+                        {% if y.status == 'archived' %}
+                            {{ action_button(y, 'restore', 'Restore', 'text-green-700', 'Restore school year ' ~ y.name ~ ' (it becomes Closed)?') }}
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        {% else %}
+            <tr><td colspan="7" class="px-4 py-10 text-center text-slate-500">No school years yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="mt-3 text-xs text-slate-500">
+    Upcoming &rarr; Active &rarr; Closed &rarr; Archived. A year with an open election cannot be closed,
+    and a year with unfinished elections cannot be archived. Nothing is ever deleted.
+</p>
+{% endblock %}

@@ -1,0 +1,140 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}{{ election.name }}{% endblock %}
+
+{# Button text, confirmation question and colour for each status action #}
+{% set labels = {
+    'schedule': ['Schedule', 'Schedule this election? Candidates can still be reviewed until it opens.', 'bg-blue-900 hover:bg-blue-800'],
+    'unschedule': ['Back to draft', 'Move this election back to draft?', 'bg-slate-600 hover:bg-slate-500'],
+    'open': ['Open voting', 'Open voting now? Eligible students will be notified.', 'bg-green-700 hover:bg-green-600'],
+    'close': ['Close voting', 'Close voting now? Students will no longer be able to vote.', 'bg-amber-600 hover:bg-amber-500'],
+    'archive': ['Archive (cancel)', 'Archive this draft election?', 'bg-red-700 hover:bg-red-600'],
+    'restore': ['Restore', 'Restore this election?', 'bg-green-700 hover:bg-green-600']
+} %}
+
+{% block content %}
+<a href="{{ url_for('elections.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to elections</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">{{ election.name }}</h1>
+        <p class="mt-1 text-sm text-slate-600">{{ election.department }} &middot; School year {{ election.school_year }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        {{ status_badge(election.status) }}
+        {% if has_permission('elections.manage') and editable %}
+        <a href="{{ url_for('elections.edit', election_id=election.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</a>
+        {% endif %}
+    </div>
+</div>
+
+{% if election.overdue %}
+<div class="mt-4 bg-amber-50 border border-amber-300 border-l-4 border-l-amber-400 text-amber-900 rounded-lg px-4 py-3 text-sm">
+    The voting period has ended but the election is still marked Open. Voting is already blocked; please close it.
+</div>
+{% endif %}
+
+<div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-sm md:col-span-2">
+        <h2 class="font-semibold mb-2">Voting period</h2>
+        <p>{{ election.start_at|dt }} <span class="text-slate-500">to</span> {{ election.end_at|dt }}</p>
+        <h2 class="font-semibold mt-4 mb-2">Participation</h2>
+        <p><span class="font-num font-semibold">{{ participation.cast }}</span> of <span class="font-num font-semibold">{{ participation.eligible }}</span> eligible voters have voted (<span class="font-num font-semibold">{{ participation.percent }}%</span>).</p>
+        <p class="mt-1 text-xs text-slate-500">Only counts are shown here. Individual votes are never displayed.</p>
+    </div>
+
+    <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-sm">
+        <h2 class="font-semibold mb-2">Election actions</h2>
+        {% if has_permission('elections.manage') %}
+        <div class="flex flex-col gap-2">
+            {% for action, rule in actions.items() if election.status in rule[0] %}
+            <form method="post" action="{{ url_for('elections.change_status', election_id=election.id, action=action) }}"
+                  data-confirm="{{ labels[action][1] }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="w-full text-white font-semibold px-4 py-2 rounded-lg {{ labels[action][2] }}">{{ labels[action][0] }}</button>
+            </form>
+            {% else %}
+            <p class="text-slate-500">No actions available in this status.</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if election.status in ['closed', 'pending_verification', 'verified', 'published'] %}
+        <p class="mt-3 text-xs text-slate-500">Results verification and publishing are added in Phase 5.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    <div class="px-4 pt-4 flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">Positions on the ballot</h2>
+        {% if editable and has_permission('candidates.manage') %}
+        <a href="{{ url_for('candidates.register', election=election.id) }}" class="text-sm text-blue-700 hover:underline">
+            <i class="fa-solid fa-user-plus mr-1"></i>Register a candidate
+        </a>
+        {% endif %}
+    </div>
+    {% if positions %}
+    <table class="w-full text-sm mt-2">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Order</th><th class="px-4 py-2">Position</th><th class="px-4 py-2">Approved</th>
+                <th class="px-4 py-2">Pending</th><th class="px-4 py-2">All candidates</th>
+                {% if editable and has_permission('elections.manage') %}<th class="px-4 py-2">Actions</th>{% endif %}</tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for p in positions %}
+            <tr>
+                <td class="px-4 py-2">
+                    {% if editable and has_permission('elections.manage') %}
+                    <div class="flex items-center gap-1">
+                        {% for direction, icon, off in [('up', 'fa-arrow-up', loop.first), ('down', 'fa-arrow-down', loop.last)] %}
+                        <form method="post" action="{{ url_for('elections.move_position', election_id=election.id, position_id=p.position_id, direction=direction) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" {{ 'disabled' if off }} aria-label="Move {{ direction }}"
+                                    class="w-7 h-7 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"><i class="fa-solid {{ icon }} text-xs"></i></button>
+                        </form>
+                        {% endfor %}
+                        <span class="ml-2 text-slate-500">{{ loop.index }}</span>
+                    </div>
+                    {% else %}{{ loop.index }}{% endif %}
+                </td>
+                <td class="px-4 py-2 font-medium">{{ p.name }}</td>
+                <td class="px-4 py-2">{{ p.approved }}</td>
+                <td class="px-4 py-2">{{ p.pending }}</td>
+                <td class="px-4 py-2"><a class="text-blue-700 hover:underline" href="{{ url_for('candidates.list_page', election=election.id, position=p.position_id) }}">{{ p.total }}</a></td>
+                {% if editable and has_permission('elections.manage') %}
+                <td class="px-4 py-2">
+                    <form method="post" action="{{ url_for('elections.remove_position', election_id=election.id, position_id=p.position_id) }}"
+                          data-confirm="Remove the position {{ p.name }} from this election?">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-red-700" title="{{ 'Remove' }}" aria-label="{{ 'Remove' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Remove'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Remove' }}</span></button>
+                    </form>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-slate-500">No positions yet. Add at least one before scheduling the election.</p>
+    {% endif %}
+
+    {% if editable and has_permission('elections.manage') %}
+    <div class="border-t border-slate-200 px-4 py-4">
+        <h3 class="text-sm font-semibold mb-2">Add positions</h3>
+        {% if available_positions %}
+        <form method="post" action="{{ url_for('elections.add_positions', election_id=election.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                {% for p in available_positions %}
+                <label class="inline-flex items-center gap-2"><input type="checkbox" class="h-4 w-4 accent-blue-900" name="position_ids" value="{{ p.id }}"> {{ p.name }}</label>
+                {% endfor %}
+            </div>
+            <button type="submit" class="mt-3 bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">Add selected</button>
+        </form>
+        {% else %}
+        <p class="text-sm text-slate-500">All active positions are already on this ballot.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

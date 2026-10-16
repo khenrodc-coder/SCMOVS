@@ -1,0 +1,47 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Departments{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Departments</h1>
+        <p class="text-sm text-slate-600">Each student and each election belongs to one department.</p>
+    </div>
+    <a href="{{ url_for('departments.create') }}"
+       class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-plus mr-1"></i>New Department
+    </a>
+</div>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Name</th><th class="px-4 py-2">Code</th><th class="px-4 py-2">Students</th>
+                <th class="px-4 py-2">Elections</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for d in departments %}
+            <tr>
+                <td class="px-4 py-2 font-medium">{{ d.name }}</td>
+                <td class="px-4 py-2">{{ d.code }}</td>
+                <td class="px-4 py-2">{{ d.student_count }}</td>
+                <td class="px-4 py-2">{{ d.election_count }}</td>
+                <td class="px-4 py-2">{{ status_badge('active' if d.is_active else 'inactive') }}</td>
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="{{ url_for('departments.edit', department_id=d.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                        <form method="post" action="{{ url_for('departments.toggle_active', department_id=d.id) }}"
+                              data-confirm="{{ 'Deactivate' if d.is_active else 'Activate' }} the {{ d.name }} department?">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 {{ 'text-red-700' if d.is_active else 'text-green-700' }}" title="{{ 'Deactivate' if d.is_active else 'Activate' }}" aria-label="{{ 'Deactivate' if d.is_active else 'Activate' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Deactivate' if d.is_active else 'Activate'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Deactivate' if d.is_active else 'Activate' }}</span></button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<p class="mt-3 text-xs text-slate-500">Departments are never deleted. A deactivated department cannot be chosen for new students or elections, but its history is kept.</p>
+{% endblock %}

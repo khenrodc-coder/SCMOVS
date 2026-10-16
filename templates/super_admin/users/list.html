@@ -1,0 +1,122 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% block title %}Users{% endblock %}
+
+{# Sortable column header #}
+{% macro th(column, label, sort_urls, sort, direction) %}
+<th class="px-4 py-2 whitespace-nowrap">
+    <a href="{{ sort_urls[column] }}" class="inline-flex items-center gap-1 hover:underline">
+        {{ label }}
+        {% if sort == column %}<i class="fa-solid fa-arrow-{{ 'up' if direction == 'asc' else 'down' }} text-xs"></i>{% endif %}
+    </a>
+</th>
+{% endmacro %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Users</h1>
+        <p class="text-sm text-slate-600">{{ total }} account{{ '' if total == 1 else 's' }} found</p>
+    </div>
+    <a href="{{ url_for('admin.user_create') }}"
+       class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-user-plus mr-1"></i>New User
+    </a>
+</div>
+
+<form method="get" action="{{ url_for('admin.users_list') }}"
+      class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search name, username, or email"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm md:col-span-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    <select name="role" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All roles</option>
+        {% for r in roles %}
+        <option value="{{ r.name }}" {{ 'selected' if role == r.name }}>{{ r.display_name }}</option>
+        {% endfor %}
+    </select>
+    <select name="status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All statuses</option>
+        <option value="active" {{ 'selected' if status == 'active' }}>Active</option>
+        <option value="inactive" {{ 'selected' if status == 'inactive' }}>Inactive</option>
+        <option value="locked" {{ 'selected' if status == 'locked' }}>Locked</option>
+    </select>
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <input type="hidden" name="dir" value="{{ direction }}">
+    <div class="md:col-span-4 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+            <i class="fa-solid fa-magnifying-glass mr-1"></i>Search
+        </button>
+        <a href="{{ url_for('admin.users_list') }}"
+           class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    {% if users %}
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr>
+                {{ th('name', 'Name', sort_urls, sort, direction) }}
+                {{ th('username', 'Username', sort_urls, sort, direction) }}
+                <th class="px-4 py-2">Email</th>
+                {{ th('role', 'Role', sort_urls, sort, direction) }}
+                <th class="px-4 py-2">Status</th>
+                {{ th('last_login', 'Last login', sort_urls, sort, direction) }}
+                <th class="px-4 py-2">Actions</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for u in users %}
+            <tr>
+                <td class="px-4 py-2 font-medium">
+                    {{ u.full_name }}
+                    {% if u.id == current_user.id %}<span class="ml-1 text-xs bg-slate-200 rounded-full px-2 py-0.5">You</span>{% endif %}
+                </td>
+                <td class="px-4 py-2">{{ u.username }}</td>
+                <td class="px-4 py-2">{{ u.email or '-' }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ u.role_display }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
+                    {% if not u.is_active %}
+                        <span class="text-xs font-semibold bg-slate-200 text-slate-700 rounded-full px-2 py-1">Inactive</span>
+                    {% elif u.is_locked %}
+                        <span class="text-xs font-semibold bg-amber-100 text-amber-800 rounded-full px-2 py-1">Locked</span>
+                    {% else %}
+                        <span class="text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2 py-1">Active</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ u.last_login_at|dt }}</td>
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <a href="{{ url_for('admin.user_edit', user_id=u.id) }}"
+                           class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+
+                        {% if u.id != current_user.id %}
+                        <form method="post" action="{{ url_for('admin.user_toggle_active', user_id=u.id) }}"
+                              data-confirm="{{ 'Deactivate' if u.is_active else 'Activate' }} the account of {{ u.full_name }}?">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 {{ 'text-red-700' if u.is_active else 'text-green-700' }}" title="{{ 'Deactivate' if u.is_active else 'Activate' }}" aria-label="{{ 'Deactivate' if u.is_active else 'Activate' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Deactivate' if u.is_active else 'Activate'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Deactivate' if u.is_active else 'Activate' }}</span></button>
+                        </form>
+
+                        <form method="post" action="{{ url_for('admin.user_reset_password', user_id=u.id) }}"
+                              data-confirm="Reset the password of {{ u.full_name }}? A new temporary password will be generated.">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-amber-700" title="{{ 'Reset password' }}" aria-label="{{ 'Reset password' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Reset password'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Reset password' }}</span></button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500">
+        <i class="fa-solid fa-users-slash text-3xl"></i>
+        <p class="mt-2">No users match your search.</p>
+    </div>
+    {% endif %}
+</div>
+
+{{ pagination('admin.users_list', page, pages, filters, total) }}
+{% endblock %}

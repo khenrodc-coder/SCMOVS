@@ -1,0 +1,41 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New School Year' if mode == 'create' else 'Edit School Year' }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('school_years.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to school years</a>
+<h1 class="mt-2 text-2xl font-extrabold tracking-tight text-blue-950">{{ 'New School Year' if mode == 'create' else 'Edit School Year' }}</h1>
+{{ form_errors(errors) }}
+
+<form method="post"
+      action="{{ url_for('school_years.create') if mode == 'create' else url_for('school_years.edit', year_id=year.id) }}"
+      class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label for="name" class="block text-sm font-semibold text-slate-700 mb-1">Name</label>
+        <input type="text" id="name" name="name" value="{{ form.name }}" required maxlength="9" placeholder="2027-2028"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+            <label for="start_date" class="block text-sm font-semibold text-slate-700 mb-1">Start date</label>
+            <input type="date" id="start_date" name="start_date" value="{{ form.start_date }}" required
+                   class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        </div>
+        <div>
+            <label for="end_date" class="block text-sm font-semibold text-slate-700 mb-1">End date</label>
+            <input type="date" id="end_date" name="end_date" value="{{ form.end_date }}" required
+                   class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        </div>
+    </div>
+    {% if mode == 'create' %}
+    <p class="text-xs text-slate-500">New school years start as Upcoming. Use "Set active" on the list page when it begins.</p>
+    {% endif %}
+    <div class="flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">
+            {{ 'Create School Year' if mode == 'create' else 'Save Changes' }}
+        </button>
+        <a href="{{ url_for('school_years.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

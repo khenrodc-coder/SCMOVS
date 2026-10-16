@@ -1,0 +1,65 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% block title %}Audit Logs{% endblock %}
+
+{% block content %}
+<div>
+    <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Audit Logs</h1>
+    <p class="text-sm text-slate-600">{{ total }} record{{ '' if total == 1 else 's' }} found. This page is read-only: logs cannot be edited or deleted.</p>
+</div>
+
+<form method="get" action="{{ url_for('audit.list_page') }}"
+      class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4 grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search description or record"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm md:col-span-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    <input type="text" name="user" value="{{ user }}" maxlength="60" placeholder="User name or username"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    <select name="module" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All modules</option>
+        {% for m in options.modules %}<option value="{{ m }}" {{ 'selected' if module == m }}>{{ m|replace('_', ' ')|capitalize }}</option>{% endfor %}
+    </select>
+    <select name="action" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All actions</option>
+        {% for a in options.actions %}<option value="{{ a }}" {{ 'selected' if action == a }}>{{ a|replace('_', ' ') }}</option>{% endfor %}
+    </select>
+    <div class="flex items-center gap-2">
+        <label class="text-xs text-slate-500" for="date_from">From</label>
+        <input type="date" id="date_from" name="date_from" value="{{ date_from }}" class="border border-slate-300 rounded-lg px-2 py-2 text-sm w-full focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+    <div class="flex items-center gap-2">
+        <label class="text-xs text-slate-500" for="date_to">To</label>
+        <input type="date" id="date_to" name="date_to" value="{{ date_to }}" class="border border-slate-300 rounded-lg px-2 py-2 text-sm w-full focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+    <div class="md:col-span-3 xl:col-span-6 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+        <a href="{{ url_for('audit.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    {% if logs %}
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">When</th><th class="px-4 py-2">User</th><th class="px-4 py-2">Module</th>
+                <th class="px-4 py-2">Action</th><th class="px-4 py-2">Details</th><th class="px-4 py-2">IP</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for l in logs %}
+            <tr class="align-top">
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ l.created_at|dt }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{% if l.full_name %}{{ l.full_name }} <span class="text-xs text-slate-500">({{ l.username }})</span>{% else %}<span class="text-slate-500">Unknown</span>{% endif %}</td>
+                <td class="px-4 py-2 whitespace-nowrap capitalize">{{ l.module|replace('_', ' ') }}</td>
+                <td class="px-4 py-2 whitespace-nowrap font-medium">{{ l.action|replace('_', ' ') }}</td>
+                <td class="px-4 py-2">{{ l.description }}{% if l.affected_record %}<span class="block text-xs text-slate-500">{{ l.affected_record }}</span>{% endif %}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ l.ip_address or '-' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-clipboard-list text-3xl"></i><p class="mt-2">No log records match your search.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination('audit.list_page', page, pages, filters, total) }}
+{% endblock %}

@@ -1,0 +1,26 @@
+{# Usage: {% from "components/badges.html" import status_badge %}  {{ status_badge('active') }} #}
+{% macro status_badge(status, label=None) %}
+{% set colors = {
+    'active': 'bg-green-100 text-green-800',
+    'upcoming': 'bg-sky-100 text-sky-800',
+    'inactive': 'bg-slate-200 text-slate-700',
+    'closed': 'bg-amber-100 text-amber-800',
+    'graduated': 'bg-indigo-100 text-indigo-800',
+    'archived': 'bg-slate-300 text-slate-700',
+    'draft': 'bg-slate-200 text-slate-700',
+    'scheduled': 'bg-sky-100 text-sky-800',
+    'open': 'bg-green-100 text-green-800',
+    'pending_verification': 'bg-amber-100 text-amber-800',
+    'verified': 'bg-indigo-100 text-indigo-800',
+    'published': 'bg-blue-100 text-blue-800',
+    'pending': 'bg-amber-100 text-amber-800',
+    'approved': 'bg-green-100 text-green-800',
+    'rejected': 'bg-red-100 text-red-800',
+    'disqualified': 'bg-red-200 text-red-900',
+    'completed': 'bg-indigo-100 text-indigo-800',
+    'submitted': 'bg-sky-100 text-sky-800',
+    'under_review': 'bg-amber-100 text-amber-800',
+    'in_progress': 'bg-blue-100 text-blue-800'
+} %}
+<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap ring-1 ring-inset ring-black/5 {{ colors.get(status, 'bg-slate-200 text-slate-700') }}">{{ label or status|replace('_', ' ')|capitalize }}</span>
+{% endmacro %}

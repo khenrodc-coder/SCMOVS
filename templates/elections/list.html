@@ -1,0 +1,80 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Elections{% endblock %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Elections</h1>
+        <p class="text-sm text-slate-600">{{ total }} election{{ '' if total == 1 else 's' }} found{% if not status %} (archived elections are hidden){% endif %}</p>
+    </div>
+    {% if has_permission('elections.manage') %}
+    <a href="{{ url_for('elections.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-plus mr-1"></i>New Election
+    </a>
+    {% endif %}
+</div>
+
+<form method="get" action="{{ url_for('elections.list_page') }}"
+      class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search election name"
+           class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    <select name="department" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All departments</option>
+        {% for d in options.departments %}<option value="{{ d.id }}" {{ 'selected' if department == d.id }}>{{ d.name }}</option>{% endfor %}
+    </select>
+    <select name="school_year" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All school years</option>
+        {% for y in options.school_years %}<option value="{{ y.id }}" {{ 'selected' if school_year == y.id }}>{{ y.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        <option value="">All (except archived)</option>
+        {% for st in statuses %}<option value="{{ st }}" {{ 'selected' if status == st }}>{{ st|replace('_', ' ')|capitalize }}</option>{% endfor %}
+    </select>
+    <div class="md:col-span-4 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+        <a href="{{ url_for('elections.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    {% if elections %}
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Election</th><th class="px-4 py-2">Department</th><th class="px-4 py-2">School year</th>
+                <th class="px-4 py-2">Voting period</th><th class="px-4 py-2">Positions</th><th class="px-4 py-2">Candidates</th>
+                <th class="px-4 py-2">Status</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for e in elections %}
+            <tr>
+                <td class="px-4 py-2 font-medium">{{ e.name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ e.department }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ e.school_year }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ e.start_at|dt }}<br>to {{ e.end_at|dt }}</td>
+                <td class="px-4 py-2">{{ e.position_count }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ e.approved_count }} approved / {{ e.candidate_count }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
+                    {{ status_badge(e.status) }}
+                    {% if e.overdue %}<span class="block mt-1 text-xs text-amber-700">Ended, please close it</span>{% endif %}
+                </td>
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap gap-3">
+                        <a href="{{ url_for('elections.detail', election_id=e.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Manage" aria-label="Manage"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="sr-only">Manage</span></a>
+                        {% if has_permission('elections.manage') and e.status in ['draft', 'scheduled'] %}
+                        <a href="{{ url_for('elections.edit', election_id=e.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-box-open text-3xl"></i><p class="mt-2">No elections found.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination('elections.list_page', page, pages, filters, total) }}
+{% endblock %}

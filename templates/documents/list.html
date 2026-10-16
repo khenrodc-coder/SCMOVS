@@ -1,0 +1,77 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% block title %}Documents{% endblock %}
+
+{% set field = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+
+{% block content %}
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">Council Documents</h1>
+        <p class="text-sm text-slate-600">{{ total }} document{{ '' if total == 1 else 's' }} found. Reports, minutes, proposals and other files of your council.</p>
+    </div>
+    {% if can_create %}
+    <a href="{{ url_for('documents.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-upload mr-1"></i>Upload Document</a>
+    {% endif %}
+</div>
+
+<form method="get" action="{{ url_for('documents.list_page') }}" class="mt-4 bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search title, description or file name" class="{{ field }} md:col-span-2">
+    <select name="category" class="{{ field }}">
+        <option value="">All categories</option>
+        {% for c in categories %}<option value="{{ c }}" {{ 'selected' if filters.category == c }}>{{ category_labels[c] }}</option>{% endfor %}
+    </select>
+    <select name="link" class="{{ field }}">
+        <option value="">Linked to anything</option>
+        {% for t in link_types %}<option value="{{ t }}" {{ 'selected' if filters.link == t }}>{{ link_labels[t] }}{{ 's' if t != 'council' }}</option>{% endfor %}
+    </select>
+    {% if councils %}
+    <select name="council" class="{{ field }}">
+        <option value="">All councils</option>
+        {% for c in councils %}<option value="{{ c.id }}" {{ 'selected' if filters.council == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="state" class="{{ field }}">
+        <option value="active" {{ 'selected' if state == 'active' }}>Active documents</option>
+        <option value="archived" {{ 'selected' if state == 'archived' }}>Archived documents</option>
+        <option value="all" {{ 'selected' if state == 'all' }}>Active and archived</option>
+    </select>
+    <label class="text-xs text-slate-500">Uploaded from <input type="date" name="date_from" value="{{ filters.date_from }}" class="{{ field }} w-full"></label>
+    <label class="text-xs text-slate-500">Uploaded to <input type="date" name="date_to" value="{{ filters.date_to }}" class="{{ field }} w-full"></label>
+    <div class="md:col-span-4 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+        <a href="{{ url_for('documents.list_page') }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 bg-white border border-slate-200 rounded-xl overflow-x-auto">
+    {% if items %}
+    <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-left">
+            <tr><th class="px-4 py-2">Document</th><th class="px-4 py-2">Category</th><th class="px-4 py-2">Linked to</th><th class="px-4 py-2">Council</th>
+                <th class="px-4 py-2">Uploaded</th><th class="px-4 py-2">Actions</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+        {% for d in items %}
+            <tr class="align-top {{ 'bg-slate-50 text-slate-500' if d.is_archived }}">
+                <td class="px-4 py-2 font-medium">{{ d.title }}{% if d.is_archived %} <span class="ml-1 text-xs font-normal bg-slate-200 text-slate-600 rounded px-1.5 py-0.5">Archived</span>{% endif %}<br>
+                    <span class="text-xs font-normal text-slate-500">{{ d.original_filename }} ({{ d.file_size|filesize }})</span></td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ category_labels[d.category] }}</td>
+                <td class="px-4 py-2">{% if d.link_title %}<span class="text-xs text-slate-500">{{ link_labels[d.link_type] }}</span><br>{{ d.link_title }}{% else %}<span class="text-slate-400">Council record</span>{% endif %}</td>
+                <td class="px-4 py-2">{{ d.council_name }}</td>
+                <td class="px-4 py-2 text-xs whitespace-nowrap">{{ d.created_at|dt }}<br>{{ d.uploaded_by_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">
+                    <a href="{{ url_for('documents.detail', document_id=d.id) }}" class="text-blue-700 hover:underline">Open</a>
+                    <a href="{{ url_for('documents.download', document_id=d.id) }}" class="ml-3 text-blue-700 hover:underline">Download</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-folder-open text-3xl"></i><p class="mt-2">No documents found.</p></div>
+    {% endif %}
+</div>
+
+{{ pagination('documents.list_page', page, pages, filters, total) }}
+{% endblock %}

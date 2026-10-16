@@ -1,0 +1,65 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'Upload' if mode == 'create' else 'Edit' }} Document{% endblock %}
+
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+{% set back = url_for('documents.list_page') if mode == 'create' else url_for('documents.detail', document_id=document.id) %}
+
+{% block content %}
+<a href="{{ back }}" class="text-sm text-blue-700 hover:underline">&larr; Back</a>
+<h1 class="mt-2 text-2xl font-bold text-blue-900">{{ 'Upload a Document' if mode == 'create' else 'Edit Document' }}</h1>
+{{ form_errors(errors) }}
+
+<form method="post" enctype="multipart/form-data" action="{{ url_for('documents.create') if mode == 'create' else url_for('documents.edit', document_id=document.id) }}"
+      class="mt-6 max-w-2xl bg-white border border-slate-200 rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    {% if mode == 'create' %}
+    <div class="sm:col-span-2">
+        <label for="council_id" class="block text-sm font-medium mb-1">Council</label>
+        <select id="council_id" name="council_id" required class="{{ input_class }}">
+            <option value="">Choose...</option>
+            {% for c in councils %}<option value="{{ c.id }}" {{ 'selected' if form.council_id == c.id|string }}>{{ c.name }}</option>{% endfor %}
+        </select>
+    </div>
+    {% else %}
+    <p class="sm:col-span-2 text-sm text-slate-600">Council: <strong>{{ document.council_name }}</strong></p>
+    {% endif %}
+
+    <div class="sm:col-span-2">
+        <label for="title" class="block text-sm font-medium mb-1">Title</label>
+        <input type="text" id="title" name="title" value="{{ form.title }}" required maxlength="200" class="{{ input_class }}" placeholder="e.g. First semester accomplishment report">
+    </div>
+    <div>
+        <label for="category" class="block text-sm font-medium mb-1">Category</label>
+        <select id="category" name="category" required class="{{ input_class }}">
+            {% for c in categories %}<option value="{{ c }}" {{ 'selected' if form.category == c }}>{{ category_labels[c] }}</option>{% endfor %}
+        </select>
+    </div>
+    <div>
+        <label for="link" class="block text-sm font-medium mb-1">Linked record <span class="text-slate-400">(optional)</span></label>
+        <select id="link" name="link" class="{{ input_class }}">
+            <option value="">None (general council record)</option>
+            {% for l in links %}<option value="{{ l.key }}" {{ 'selected' if form.link == l.key }}>{{ l.label }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="sm:col-span-2">
+        <label for="description" class="block text-sm font-medium mb-1">Description <span class="text-slate-400">(optional)</span></label>
+        <textarea id="description" name="description" rows="3" maxlength="500" class="{{ input_class }}">{{ form.description }}</textarea>
+    </div>
+
+    {% if mode == 'create' %}
+    <div class="sm:col-span-2">
+        <label for="file" class="block text-sm font-medium mb-1">File <span class="text-slate-400">(PDF, JPG or PNG, max 5 MB)</span></label>
+        <input type="file" id="file" name="file" required accept=".pdf,.jpg,.jpeg,.png" class="block w-full text-sm">
+    </div>
+    {% else %}
+    <p class="sm:col-span-2 text-xs text-slate-500">File: {{ document.original_filename }} ({{ document.file_size|filesize }}). A file cannot be replaced: upload a new document instead and archive this one.</p>
+    {% endif %}
+
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-lg">{{ 'Upload' if mode == 'create' else 'Save Changes' }}</button>
+        <a href="{{ back }}" class="border border-slate-300 bg-white hover:bg-slate-100 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

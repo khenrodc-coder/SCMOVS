@@ -1,0 +1,34 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}Review your ballot{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-900">Review your ballot</h1>
+<p class="text-sm text-slate-600">{{ election.name }}. Check your choices carefully. After you confirm, your ballot is final.</p>
+
+<div class="mt-4 max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-left"><tr><th class="px-4 py-2">Position</th><th class="px-4 py-2">Your choice</th></tr></thead>
+        <tbody class="divide-y divide-slate-200">
+        {% for line in lines %}
+            <tr><td class="px-4 py-3 font-medium">{{ line.position }}</td>
+                <td class="px-4 py-3">{% if line.candidate %}<span class="font-semibold text-blue-900">{{ line.candidate }}</span>{% else %}<span class="text-slate-400">No vote</span>{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<form method="post" action="{{ url_for('voting.cast', election_id=election.id) }}" id="cast-form" class="mt-4 max-w-2xl" data-confirm="Submit your ballot? You cannot change it afterwards.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for line in lines if line.candidate_id %}<input type="hidden" name="position_{{ line.position_id }}" value="{{ line.candidate_id }}">{% endfor %}
+    <div class="flex flex-wrap gap-2">
+        <button type="submit" id="cast-button" class="rounded-lg bg-green-700 px-5 py-2 font-semibold text-white hover:bg-green-600"><i class="fa-solid fa-check-to-slot mr-1"></i>Confirm and submit ballot</button>
+        <a href="{{ url_for('voting.ballot', election_id=election.id) }}" class="rounded-lg border border-slate-300 bg-white px-5 py-2 hover:bg-slate-100">Go back and change</a>
+    </div>
+</form>
+<script>
+    // Stop a double click from sending the ballot twice (the database would refuse the second one anyway).
+    document.getElementById('cast-form').addEventListener('submit', function () {
+        var b = document.getElementById('cast-button'); setTimeout(function () { b.disabled = true; b.classList.add('opacity-60'); }, 0);
+    });
+</script>
+{% endblock %}

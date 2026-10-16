@@ -1,0 +1,129 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}{{ council.name }}{% endblock %}
+
+{% set labels = {
+    'complete': ['Complete term', 'Complete this council? Every officer assignment ends and students go back to the Student role.', 'bg-amber-600 hover:bg-amber-500'],
+    'archive': ['Archive', 'Archive this completed council? It is kept as history.', 'bg-red-700 hover:bg-red-600'],
+    'restore': ['Restore', 'Restore this council (it becomes Completed)?', 'bg-green-700 hover:bg-green-600']
+} %}
+{% set is_active = council.status == 'active' %}
+
+{% block content %}
+<a href="{{ url_for('councils.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to councils</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">{{ council.name }}</h1>
+        <p class="mt-1 text-sm text-slate-600">{{ council.department }} &middot; School year {{ council.school_year }}
+            &middot; Term {{ council.term_start }} to {{ council.term_end }}</p>
+        {% if council.election_name %}<p class="text-xs text-slate-500">Linked election: {{ council.election_name }}</p>{% endif %}
+    </div>
+    <div class="flex items-center gap-2">
+        {{ status_badge(council.status) }}
+        {% if is_active %}<a href="{{ url_for('councils.edit', council_id=council.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+        {% for action, rule in actions.items() if council.status in rule[0] %}
+        <form method="post" action="{{ url_for('councils.change_status', council_id=council.id, action=action) }}" data-confirm="{{ labels[action][1] }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="text-white text-sm font-semibold px-3 py-1.5 rounded-lg {{ labels[action][2] }}">{{ labels[action][0] }}</button>
+        </form>
+        {% endfor %}
+    </div>
+</div>
+
+{% if council.overdue %}
+<div class="mt-4 bg-amber-50 border border-amber-300 border-l-4 border-l-amber-400 text-amber-900 rounded-lg px-4 py-3 text-sm">
+    The term ended on {{ council.term_end }}. Please complete the council so the officers' assignments end.
+</div>
+{% endif %}
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    <h2 class="px-4 pt-4 font-semibold">Officers ({{ active_officers|length }})</h2>
+    {% if active_officers %}
+    <table class="w-full text-sm mt-2">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Officer</th><th class="px-4 py-2">Student ID</th><th class="px-4 py-2">Position</th>
+                <th class="px-4 py-2">Since</th>{% if is_active %}<th class="px-4 py-2">Actions</th>{% endif %}</tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for o in active_officers %}
+            <tr class="align-top">
+                <td class="px-4 py-2 font-medium">{{ o.full_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ o.student_number or 'staff account' }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ o.position_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ o.created_at|dt }}</td>
+                {% if is_active %}
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <form method="post" action="{{ url_for('councils.change_position', council_id=council.id, officer_id=o.id) }}" class="flex items-center gap-1">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="position_id" aria-label="New position" class="border border-slate-300 rounded-lg px-2 py-1 text-xs">
+                                {% for p in positions %}<option value="{{ p.id }}" {{ 'selected' if p.id == o.position_id }}>{{ p.name }}</option>{% endfor %}
+                            </select>
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-800" title="Change position" aria-label="Change position"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i><span class="sr-only">Change position</span></button>
+                        </form>
+                        <form method="post" action="{{ url_for('councils.remove_officer', council_id=council.id, officer_id=o.id) }}" class="flex items-center gap-1"
+                              data-confirm="Remove {{ o.full_name }} as {{ o.position_name }}? Their assignment ends today.">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="text" name="reason" maxlength="200" placeholder="Reason (optional)" aria-label="Reason"
+                                   class="border border-slate-300 rounded-lg px-2 py-1 text-xs w-36">
+                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-red-700" title="Remove officer" aria-label="Remove officer"><i class="fa-solid fa-user-minus" aria-hidden="true"></i><span class="sr-only">Remove officer</span></button>
+                        </form>
+                    </div>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p class="px-4 py-6 text-sm text-slate-500">No officers yet.</p>
+    {% endif %}
+
+    {% if is_active %}
+    <div class="border-t border-slate-200 px-4 py-4">
+        <h3 class="text-sm font-semibold mb-2">Assign an officer</h3>
+        <form method="post" action="{{ url_for('councils.add_officer', council_id=council.id) }}" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="student_number" required maxlength="30" placeholder="Student ID" autocomplete="off" aria-label="Student ID"
+                   class="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+            <select name="position_id" required aria-label="Position" class="border border-slate-300 rounded-lg px-3 py-2 text-sm md:col-span-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+                <option value="">Select a position</option>
+                {% for p in positions %}
+                <option value="{{ p.id }}" {{ 'disabled' if p.filled >= p.seats }}>{{ p.name }} ({{ p.filled }}/{{ p.seats }} filled)</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">Assign</button>
+        </form>
+        <p class="mt-2 text-xs text-slate-500">
+            The student must be active, in {{ council.department }}, and enrolled in {{ council.school_year }}. They become a Council Officer
+            for the term and return to the Student role when the assignment ends.
+            {% if council.election_name %}Positions that were on the ballot of the linked election need an approved candidate.{% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+
+{% if past_officers %}
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    <h2 class="px-4 pt-4 font-semibold">Past officers (history)</h2>
+    <table class="w-full text-sm mt-2">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr><th class="px-4 py-2">Officer</th><th class="px-4 py-2">Student ID</th><th class="px-4 py-2">Position</th>
+                <th class="px-4 py-2">From</th><th class="px-4 py-2">Until</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for o in past_officers %}
+            <tr>
+                <td class="px-4 py-2 font-medium">{{ o.full_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ o.student_number or 'staff account' }}</td>
+                <td class="px-4 py-2 whitespace-nowrap">{{ o.position_name }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ o.created_at|dt }}</td>
+                <td class="px-4 py-2 whitespace-nowrap text-xs">{{ o.ended_at|dt if o.ended_at else '-' }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

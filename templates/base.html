@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}{{ system_name }}{% endblock %} | {{ system_name }}
+    </title>
+
+    <!-- Fonts: Inter (UI text), Playfair Display (headings), Roboto (numbers).
+         Meiryo is a system font (not on Google Fonts), so it is listed first with fallbacks. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700;800&family=Roboto:wght@400;500;700&display=swap">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        // font-sans (default) = Inter: small text, labels, helper text, body.
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Arial', 'sans-serif'],
+                        // font-heading = Playfair Display: page and section headings.
+                        heading: ['"Playfair Display"', 'Georgia', '"Times New Roman"', 'serif'],
+                        // font-display = Meiryo: large display text (hero / brand titles).
+                        display: ['Meiryo', '"メイリオ"', '"Hiragino Kaku Gothic ProN"', '"Hiragino Sans"', '"Yu Gothic"', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        // font-num = Roboto: statistics, counts, amounts, percentages.
+                        num: ['Roboto', 'Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        /* Typography scale (one place to adjust):
+           display  -> font-display (Meiryo)            hero / brand titles
+           headings -> h1, h2 = Playfair Display         page + section headings
+           ui text  -> Inter (default); h3/h4 stay Inter compact card titles
+           numbers  -> font-num (Roboto, tabular)        stats, counts, amounts, % */
+        h1, h2 { font-family: "Playfair Display", Georgia, "Times New Roman", serif; }
+        .font-num { font-variant-numeric: tabular-nums; letter-spacing: 0; }
+        /* Edge adds its own reveal icon to password fields; we provide ours. */
+        input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
+    </style>
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+</head>
+
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    {% block body %}{% endblock %}
+
+    <!-- Flask Flash Messages -->
+    <script id="scmovs-flash-data" type="application/json">
+        {{ get_flashed_messages(with_categories=true) | tojson | safe }}
+    </script>
+    <script>
+        const flashDataEl = document.getElementById("scmovs-flash-data");
+        window.SCMOVS_FLASH = flashDataEl ? JSON.parse(flashDataEl.textContent) : [];
+    </script>
+
+    <!-- Password show/hide (buttons come from components/icons.html: password_toggle) -->
+    <script>
+        (function () {
+            function setState(btn, show) {
+                var input = document.getElementById(btn.getAttribute("aria-controls"));
+                if (!input) return;
+                input.type = show ? "text" : "password";   // value is untouched, so nothing is lost
+                var label = show ? "Hide password" : "Show password";
+                btn.setAttribute("aria-label", label);
+                btn.setAttribute("title", label);
+                var s = btn.querySelector("[data-icon-show]"), h = btn.querySelector("[data-icon-hide]");
+                if (s) s.classList.toggle("hidden", show);
+                if (h) h.classList.toggle("hidden", !show);
+            }
+            document.addEventListener("click", function (e) {
+                var btn = e.target.closest("[data-password-toggle]");
+                if (!btn) return;
+                var input = document.getElementById(btn.getAttribute("aria-controls"));
+                setState(btn, !!input && input.type === "password");
+            });
+            // Never leave a password revealed when the page is restored from the back/forward cache.
+            window.addEventListener("pageshow", function (e) {
+                if (!e.persisted) return;
+                document.querySelectorAll("[data-password-toggle]").forEach(function (b) { setState(b, false); });
+            });
+        })();
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+
+    {% block scripts %}{% endblock %}
+
+</body>
+</html>

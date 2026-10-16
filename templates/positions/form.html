@@ -1,0 +1,32 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New Position' if mode == 'create' else 'Edit Position' }}{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('positions.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to positions</a>
+<h1 class="mt-2 text-2xl font-extrabold tracking-tight text-blue-950">{{ 'New Position' if mode == 'create' else 'Edit Position' }}</h1>
+{{ form_errors(errors) }}
+
+<form method="post"
+      action="{{ url_for('positions.create') if mode == 'create' else url_for('positions.edit', position_id=position.id) }}"
+      class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label for="name" class="block text-sm font-semibold text-slate-700 mb-1">Name</label>
+        <input type="text" id="name" name="name" value="{{ form.name }}" required maxlength="80"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+    <div>
+        <label for="description" class="block text-sm font-semibold text-slate-700 mb-1">Description <span class="text-slate-400">(optional)</span></label>
+        <textarea id="description" name="description" rows="3" maxlength="255"
+                  class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">{{ form.description }}</textarea>
+    </div>
+    {% if mode == 'create' %}<p class="text-xs text-slate-500">New positions are added at the bottom of the order. Use the arrows on the list page to move them.</p>{% endif %}
+    <div class="flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 font-semibold px-5 py-2 rounded-lg">
+            {{ 'Create Position' if mode == 'create' else 'Save Changes' }}
+        </button>
+        <a href="{{ url_for('positions.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,52 @@
+{# Shared dashboard panels #}
+{% from "components/cards.html" import panel_head %}
+
+{% macro notifications_panel(notifications, unread) %}
+<section class="rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="Notifications">
+    {{ panel_head('fa-bell', 'Notifications', (unread ~ ' unread') if unread else 'All read') }}
+    {% if notifications %}
+    <ul class="divide-y divide-slate-200">
+        {% for n in notifications %}
+        <li>
+            <form method="post" action="{{ url_for('notifications.open_notification', notification_id=n.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="flex w-full items-start gap-2 px-4 py-2.5 text-left hover:bg-slate-50">
+                    <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {{ 'bg-blue-600' if not n.is_read else 'bg-transparent' }}" aria-hidden="true"></span>
+                    <span class="min-w-0"><span class="block truncate text-sm {{ 'font-semibold text-slate-900' if not n.is_read else 'text-slate-600' }}">{{ n.title }}</span>
+                        <span class="block text-xs text-slate-500">{{ n.message|truncate(90) }}</span>
+                        <span class="block text-[11px] text-slate-400">{{ n.created_at|dt }}</span></span>
+                </button>
+            </form>
+        </li>
+        {% endfor %}
+    </ul>
+    {% if unread %}
+    <form method="post" action="{{ url_for('notifications.read_all') }}" class="border-t border-slate-200 px-4 py-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="text-xs font-semibold text-blue-700 hover:underline">Mark all as read</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <p class="px-4 py-6 text-center text-sm text-slate-500">No notifications yet.</p>
+    {% endif %}
+</section>
+{% endmacro %}
+
+{% macro announcements_panel(announcements) %}
+<section class="rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="Announcements">
+    {{ panel_head('fa-bullhorn', 'Announcements') }}
+    {% if announcements %}
+    <ul class="divide-y divide-slate-200">
+        {% for a in announcements %}
+        <li class="px-4 py-2.5">
+            <p class="text-sm font-semibold text-slate-900">{{ a.title }}</p>
+            <p class="mt-0.5 text-xs text-slate-600">{{ a.content|truncate(140) }}</p>
+            <p class="mt-0.5 text-[11px] text-slate-400">{{ a.author }} &middot; {{ (a.publish_at or a.created_at)|dt }}</p>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="px-4 py-6 text-center text-sm text-slate-500">No announcements yet.</p>
+    {% endif %}
+</section>
+{% endmacro %}

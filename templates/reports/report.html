@@ -1,0 +1,80 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}{{ report.title }} Report{% endblock %}
+
+{% set field = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+{% set filters = report.filters %}
+
+{% block content %}
+<a href="{{ url_for('reports.index') }}" class="text-sm text-blue-700 hover:underline">&larr; All reports</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">{{ report.title }}</h1>
+        <p class="text-sm text-slate-600">{{ report.description }}</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+        <a href="{{ url_for('reports.show_report', key=report.key, print=1, **filters) }}" target="_blank" rel="noopener"
+           class="border border-slate-300 bg-white hover:bg-slate-100 text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-print mr-1"></i>Print view</a>
+        <a href="{{ url_for('reports.show_report', key=report.key, format='csv', **filters) }}"
+           class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-file-csv mr-1"></i>Export CSV</a>
+    </div>
+</div>
+
+<form method="get" action="{{ url_for('reports.show_report', key=report.key) }}" class="mt-4 bg-white border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+    {% if is_admin %}
+    <select name="council" class="{{ field }}">
+        <option value="">All councils</option>
+        {% for c in options.councils %}<option value="{{ c.id }}" {{ 'selected' if filters.council == c.id }}>{{ c.name }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <select name="school_year" class="{{ field }}">
+        <option value="">All school years</option>
+        {% for y in options.school_years %}<option value="{{ y.id }}" {{ 'selected' if filters.school_year == y.id }}>{{ y.name }}</option>{% endfor %}
+    </select>
+    <select name="status" class="{{ field }}">
+        <option value="">All statuses</option>
+        {% for st in report.statuses %}<option value="{{ st }}" {{ 'selected' if filters.status == st }}>{{ st|replace('_', ' ')|capitalize }}</option>{% endfor %}
+    </select>
+    {% if report.has_date %}
+    <label class="text-xs text-slate-500">{{ report.date_label }} from <input type="date" name="date_from" value="{{ filters.date_from }}" class="{{ field }} w-full"></label>
+    <label class="text-xs text-slate-500">{{ report.date_label }} to <input type="date" name="date_to" value="{{ filters.date_to }}" class="{{ field }} w-full"></label>
+    {% endif %}
+    <div class="md:col-span-4 flex gap-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg"><i class="fa-solid fa-filter mr-1"></i>Apply filters</button>
+        <a href="{{ url_for('reports.show_report', key=report.key) }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-4 py-2 rounded-lg">Reset</a>
+    </div>
+</form>
+
+{% if report.summary %}
+<div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+    {% for label, value in report.summary %}
+    <div class="bg-white border border-slate-200 rounded-xl px-4 py-3">
+        <div class="text-xs text-slate-500">{{ label }}</div><div class="text-lg font-bold text-blue-900">{{ value }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if report.truncated %}
+<div class="mt-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm">
+    This report has more than {{ report.count }} rows, so only the first {{ report.count }} are shown. Narrow the filters to see the rest.</div>
+{% endif %}
+
+<div class="mt-4 bg-white border border-slate-200 rounded-xl overflow-x-auto">
+    {% if report.rows %}
+    <table class="w-full text-sm">
+        <thead class="bg-slate-100">
+            <tr>{% for col in report.columns %}<th class="px-3 py-2 text-{{ col.align }} whitespace-nowrap">{{ col.label }}</th>{% endfor %}</tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+        {% for row in report.rows %}
+            <tr class="align-top">{% for cell in row %}<td class="px-3 py-2 text-{{ cell.align }}">{{ cell.text }}</td>{% endfor %}</tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-file-circle-question text-3xl"></i><p class="mt-2">No records match these filters.</p></div>
+    {% endif %}
+</div>
+<p class="mt-2 text-xs text-slate-500">{{ report.count }} row{{ '' if report.count == 1 else 's' }}. Generated {{ generated_at|dt }}.</p>
+{% endblock %}
