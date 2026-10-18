@@ -5,15 +5,7 @@ Safety rules used here:
 - The database password is never put on the command line: it goes into a temporary
   option file that only this program can read, deleted right after the tool finishes.
 - File names come from the database and are checked against a strict pattern, never from the browser.
-- Every backup gets a SHA-256 checksum. BALLOT SECRECY (Phase 7A, option A): the `ballots` table says WHO voted and the `votes` table says WHAT
-was chosen. Together they reveal how each student voted, so a downloadable backup must never hold both.
-  * Backups are made WITHOUT those two tables (mysqldump --ignore-table), and every new file is scanned
-    to prove it. A file that fails the scan is deleted.
-  * Because a restore therefore never touches ballots/votes, a restore is refused when the voting data
-    refers to candidates, elections or students created AFTER the backup (their ids could be reused and
-    old votes would silently count for the wrong person).
-  * Backups made before this rule contain ballot data: they can no longer be downloaded or restored here.
-Only COUNTS are read from these tables in this module, and never with the two tables joined together.
+- Every backup gets a SHA-256 checksum. A file is only restored or downloaded if it still matches.
 """
 import hashlib
 import os
@@ -33,10 +25,6 @@ from app.utils import get_page
 
 PER_PAGE = 10
 NAME_RE = re.compile(r"^scmovs_\d{8}_\d{6}_[0-9a-f]{6}\.sql$")
-PROTECTED_TABLES = ("ballots", "votes")      # never part of a backup file
-# any statement in a dump that creates, fills or locks one of the protected tables
-PROTECTED_RE = re.compile(rb"(?:INSERT INTO|CREATE TABLE|LOCK TABLES|DROP TABLE IF EXISTS|ALTER TABLE)\s+`(?:"
-                          + b"|".join(t.encode() for t in PROTECTED_TABLES) + rb")`", re.IGNORECASE)
 DUMP_TIMEOUT = 300           # seconds
 RESTORE_TIMEOUT = 900
 
@@ -119,72 +107,10 @@ def _has_completion_marker(path):
         return b"-- Dump completed" in handle.read()
 
 
-def file_contains_protected_data(path):
-    """True if the dump creates, fills or locks the ballots/votes tables. Reads the file in blocks."""
-    overlap = b""
-    with open(path, "rb") as handle:
-        for block in iter(lambda: handle.read(1024 * 1024), b""):
-            if PROTECTED_RE.search(overlap + block):
-                return True
-            # a statement may start at the end of one block
-            overlap = block[-100:]
-    return False
-
-
-def protection_problem(backup):
-    """Message when this backup is not protected (made before ballot protection), else None."""
-    if not backup.get("ballots_excluded"):
-        return ("This backup was made before ballot protection and still contains ballot data, so it cannot be "
-                "downloaded or restored here. Create a new backup. (Delete the old file from the backups "
-                "folder if you no longer need it.)")
-    return None
-
-
-def voting_data_conflict(backup):
-    """Message when restoring this backup could break links between ballots and the records they refer to.
-
-    ballots/votes are not in the backup, so a restore leaves them alone. That is only safe if every candidate,
-    election and student they point to already existed when the backup was made. Counts only, and the two
-    tables are never joined to each other.
-    """
-    created = backup["created_at"]
-    checks = (
-        ("candidate(s) with votes", "SELECT COUNT(DISTINCT c.id) AS n FROM votes v "
-                                    "JOIN candidates c ON c.id = v.candidate_id WHERE c.created_at > %s"),
-        ("election(s) with ballots", "SELECT COUNT(DISTINCT e.id) AS n FROM ballots b "
-                                     "JOIN elections e ON e.id = b.election_id WHERE e.created_at > %s"),
-        ("voter(s) (students)", "SELECT COUNT(DISTINCT s.id) AS n FROM ballots b "
-                                "JOIN students s ON s.id = b.student_id WHERE s.created_at > %s"),
-    )
-    found = []
-    for label, sql in checks:
-        count = fetch_one(sql, (created,))["n"]
-        if count:
-            found.append(f"{count} {label}")
-    if not found:
-        return None
-    detail = ", ".join(found)
-    return ("This backup is too old to restore safely: the voting data refers to records created after it "
-            f"({detail}). Restoring would break the link between ballots and the records they refer to. "
-            "Use a newer backup.")
-
-
-def orphaned_voting_references():
-    """How many ballots/votes point at a record that no longer exists. Should always be 0."""
-    queries = ("SELECT COUNT(*) AS n FROM votes v LEFT JOIN candidates c ON c.id = v.candidate_id WHERE c.id IS NULL",
-               "SELECT COUNT(*) AS n FROM votes v LEFT JOIN elections e ON e.id = v.election_id WHERE e.id IS NULL",
-               "SELECT COUNT(*) AS n FROM ballots b LEFT JOIN students s ON s.id = b.student_id WHERE s.id IS NULL",
-               "SELECT COUNT(*) AS n FROM ballots b LEFT JOIN elections e ON e.id = b.election_id WHERE e.id IS NULL")
-    return sum(fetch_one(sql)["n"] for sql in queries)
-
-
 def verify_backup_file(backup):
     """Return an error message if the stored file is missing, changed or incomplete, else None."""
     if backup["status"] != "completed":
         return "Only completed backups can be used."
-    problem = protection_problem(backup)
-    if problem:
-        return problem
     try:
         path = backup_path(backup["filename"])
     except ValueError:
@@ -211,14 +137,14 @@ def list_backups(args):
 
 
 def get_backup(backup_id):
-    return fetch_one("SELECT id, filename, file_size, checksum, ballots_excluded, status, note, created_at FROM backups WHERE id = %s",
+    return fetch_one("SELECT id, filename, file_size, checksum, status, note, created_at FROM backups WHERE id = %s",
                      (backup_id,))
 
 
 # ================================================================ create
 
 def create_backup(actor_id, note=""):
-    """Make a full backup WITHOUT the ballots and votes tables. Returns (backup_id, error_or_None)."""
+    """Make a full backup (tables, data, views, triggers, routines). Returns (backup_id, error_or_None)."""
     filename = f"scmovs_{datetime.now():%Y%m%d_%H%M%S}_{secrets.token_hex(3)}.sql"
     path = backup_path(filename)
 
@@ -234,8 +160,7 @@ def create_backup(actor_id, note=""):
     try:
         with _credentials_file() as option_file:
             args = _connection_args("MYSQLDUMP_PATH", option_file) + [
-                "--single-transaction", "--routines", "--triggers"] + [
-                f"--ignore-table={current_app.config['DATABASE_NAME']}.{table}" for table in PROTECTED_TABLES] + [
+                "--single-transaction", "--routines", "--triggers",
                 f"--result-file={path}", current_app.config["DATABASE_NAME"]]
             proc = subprocess.run(args, capture_output=True,
                                   text=True, timeout=DUMP_TIMEOUT)
@@ -243,9 +168,6 @@ def create_backup(actor_id, note=""):
             error = _clean_error(proc.stderr) or "mysqldump failed."
         elif not os.path.isfile(path) or not _has_completion_marker(path):
             error = "The backup file looks incomplete."
-        elif file_contains_protected_data(path):
-            # Should never happen. If it does, the file is deleted below: it must not be downloadable.
-            error = "The backup contained ballot data, so it was discarded to protect ballot secrecy."
     except FileNotFoundError:
         error = "mysqldump was not found. Install the MySQL command-line tools or set MYSQLDUMP_PATH in .env."
     except subprocess.TimeoutExpired:
@@ -263,11 +185,9 @@ def create_backup(actor_id, note=""):
             log_action(actor_id, "backup_failed", "backups", f"Backup {filename} failed: {error}"[:500],
                        affected_record=f"backup:{backup_id}", commit=False)
         else:
-            cursor.execute("UPDATE backups SET status = 'completed', file_size = %s, checksum = %s, "
-                           "ballots_excluded = 1, completed_at = NOW() WHERE id = %s",
-                           (os.path.getsize(path), _sha256(path), backup_id))
-            log_action(actor_id, "backup_created", "backups",
-                       f"Created backup {filename} (ballots and votes excluded for ballot secrecy)",
+            cursor.execute("UPDATE backups SET status = 'completed', file_size = %s, checksum = %s, completed_at = NOW() "
+                           "WHERE id = %s", (os.path.getsize(path), _sha256(path), backup_id))
+            log_action(actor_id, "backup_created", "backups", f"Created backup {filename}",
                        affected_record=f"backup:{backup_id}", commit=False)
         db.commit()
     except Exception:
@@ -291,9 +211,7 @@ def restore_backup(backup, actor):
         return problem
     if fetch_one("SELECT COUNT(*) AS n FROM elections WHERE status = 'open'")["n"]:
         return "An election is open. Close it before restoring a backup, so no votes are lost."
-    conflict = voting_data_conflict(backup)
-    if conflict:
-        return conflict
+
     safety_id, error = create_backup(
         actor["id"], f"Automatic backup before restoring {backup['filename']}")
     if error:
@@ -301,8 +219,8 @@ def restore_backup(backup, actor):
     safety = get_backup(safety_id)
 
     # The restore replaces the backups table too, so remember the current records first
-    snapshot = fetch_all("SELECT filename, file_size, checksum, ballots_excluded, status, note, created_by, "
-                         "created_at, completed_at FROM backups")
+    snapshot = fetch_all("SELECT filename, file_size, checksum, status, note, created_by, created_at, completed_at "
+                         "FROM backups")
 
     # IMPORTANT: end this request's own database transaction first. An open transaction keeps
     # locks on the tables it read, and the restore must DROP and re-create those same tables.
@@ -356,26 +274,24 @@ def _reconcile_after_restore(snapshot, actor, restored_name, safety_name, failur
             if row["filename"] in present:
                 # The restored copy of this record may be older (a backup's own record is saved
                 # as "in progress" just before the dump runs), so bring it up to date.
-                cursor.execute("UPDATE backups SET file_size = %s, checksum = %s, ballots_excluded = %s, status = %s, "
-                               "note = %s, completed_at = %s WHERE filename = %s",
-                               (row["file_size"], row["checksum"], row["ballots_excluded"], row["status"], row["note"],
+                cursor.execute("UPDATE backups SET file_size = %s, checksum = %s, status = %s, note = %s, "
+                               "completed_at = %s WHERE filename = %s",
+                               (row["file_size"], row["checksum"], row["status"], row["note"],
                                 row["completed_at"], row["filename"]))
                 continue
             owner = row["created_by"] if _user_exists(
                 row["created_by"]) else (fallback["id"] if fallback else None)
             if owner is None:
                 continue
-        cursor.execute(
-            "INSERT INTO backups (filename, file_size, checksum, ballots_excluded, status, note, created_by, "
-            "created_at, completed_at) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-            (row["filename"], row["file_size"], row["checksum"], row["ballots_excluded"], row["status"], row["note"], owner,
-             row["created_at"], row["completed_at"]))
+            cursor.execute(
+                "INSERT INTO backups (filename, file_size, checksum, status, note, created_by, created_at, completed_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (row["filename"], row["file_size"], row["checksum"], row["status"], row["note"], owner,
+                 row["created_at"], row["completed_at"]))
         outcome = "FAILED" if failure else "completed"
-        orphans = orphaned_voting_references()
-        warning = f" WARNING: {orphans} ballot/vote record(s) now point at missing records." if orphans else ""
         log_action(actor["id"] if _user_exists(actor["id"]) else None, "backup_restore_failed" if failure else "backup_restored",
                    "backups", f"Restore from {restored_name} {outcome} by {actor['username']}. "
-                   f"Safety backup of the previous data: {safety_name}.{warning}"[:500], commit=False)
+                   f"Safety backup of the previous data: {safety_name}"[:500], commit=False)
         db.commit()
     except Exception:
         db.rollback()

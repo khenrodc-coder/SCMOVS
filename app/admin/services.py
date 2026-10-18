@@ -4,6 +4,8 @@ import secrets
 from app.audit.services import log_action
 from app.auth.services import get_setting_int
 from app.db import fetch_all, fetch_one, get_db
+from app.validators import (STUDENT_ID_RE, build_full_name, normalize_email, validate_email_format, validate_names,
+                            validate_student_email)
 
 PER_PAGE = 10
 
@@ -184,9 +186,10 @@ def allowed_roles_for(has_student):
 
 def get_user(user_id):
     return fetch_one(
-        "SELECT u.id, u.username, u.email, u.full_name, u.is_active, "
+        "SELECT u.id, u.username, u.email, u.full_name, u.first_name, u.middle_name, u.last_name, u.photo_path, u.is_active, "
         "       r.name AS role, r.display_name AS role_display, "
         "       (SELECT COUNT(*) FROM students s WHERE s.user_id = u.id) > 0 AS has_student, "
+        "       (SELECT s.student_number FROM students s WHERE s.user_id = u.id) AS student_number, "
         "       (SELECT COUNT(*) FROM council_officers co JOIN councils c ON c.id = co.council_id "
         "         WHERE co.user_id = u.id AND co.is_active = 1 AND c.status = 'active') AS active_assignments "
         "FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = %s",
@@ -248,7 +251,7 @@ def list_users(args):
 
     # SORT_COLUMNS[sort] is from our own whitelist, never from the browser text
     users = fetch_all(
-        "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.last_login_at, "
+        "SELECT u.id, u.username, u.email, u.full_name, u.photo_path, u.is_active, u.last_login_at, "
         "       r.display_name AS role_display, "
         "       (u.locked_until IS NOT NULL AND u.locked_until > NOW()) AS is_locked, "
         "       (s.id IS NOT NULL) AS has_student "
@@ -270,31 +273,36 @@ def list_users(args):
 
 # ======================================================== validation
 
-def validate_user_fields(form, allowed_roles, user_id=None, check_role=True):
-    """Return a list of error messages (empty list = valid)."""
-    errors = []
+def validate_user_fields(form, allowed_roles, user_id=None, check_role=True, student_number=None):
+    """Return {field: message}. An empty dict means the data is valid.
 
-    if not 2 <= len(form["full_name"]) <= 120:
-        errors.append("Full name must be between 2 and 120 characters.")
+    form keys: username (create only), first_name, middle_name, last_name, email, role.
+    student_number is passed for accounts that belong to a student record: their email must then be
+    <Student ID>@holycross.edu.ph. Administrative accounts only need a valid, unique email.
+    """
+    errors = validate_names(
+        form["first_name"], form["middle_name"], form["last_name"])
 
     if user_id is None:
         username = form["username"]
         if not USERNAME_RE.match(username):
-            errors.append(
-                "Username must be 3-50 characters: letters, numbers, dot, underscore, or hyphen.")
+            errors["username"] = "3-50 characters: letters, numbers, dot, underscore, or hyphen."
         elif fetch_one("SELECT id FROM users WHERE username = %s", (username,)):
-            errors.append("That username is already taken.")
+            errors["username"] = "That username is already taken."
 
     email = form["email"]
-    if email:
-        if len(email) > 120 or not EMAIL_RE.match(email):
-            errors.append(
-                "Please enter a valid email address (maximum 120 characters).")
-        elif fetch_one("SELECT id FROM users WHERE email = %s AND id <> %s", (email, user_id or 0)):
-            errors.append("That email address is already in use.")
+    if student_number and STUDENT_ID_RE.fullmatch(student_number):
+        problem = validate_student_email(email, student_number)
+    else:
+        # staff accounts (and legacy non-8-digit student numbers)
+        problem = validate_email_format(email)
+    if problem:
+        errors["email"] = problem
+    elif fetch_one("SELECT id FROM users WHERE email = %s AND id <> %s", (email, user_id or 0)):
+        errors["email"] = "That email address is already in use."
 
     if check_role and form["role"] not in allowed_roles:
-        errors.append("Please choose a valid role.")
+        errors["role"] = "Please choose a valid role."
 
     return errors
 
@@ -317,14 +325,14 @@ def create_user(form, password_hash, actor_id):
     cursor = db.cursor()
     try:
         cursor.execute(
-            "INSERT INTO users (username, email, password_hash, full_name, role_id, must_change_password) "
-            "VALUES (%s, %s, %s, %s, %s, 1)",
-            (form["username"], form["email"] or None,
-             password_hash, form["full_name"], role_id),
+            "INSERT INTO users (username, email, password_hash, full_name, first_name, middle_name, last_name, "
+            "role_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)",
+            (form["username"], form["email"], password_hash, form["full_name"],
+             form["first_name"], form["middle_name"] or None, form["last_name"], role_id),
         )
         new_id = cursor.lastrowid
         log_action(actor_id, "user_created", "users",
-                 f"Created {role_display_name} account '{form['username']}'",
+                   f"Created {role_display_name} account '{form['username']}'",
                    affected_record=f"user:{new_id}", commit=False)
         db.commit()
         return new_id
@@ -341,11 +349,14 @@ def update_user(user, form, actor_id):
     cursor = db.cursor()
     try:
         cursor.execute(
-            "UPDATE users SET full_name = %s, email = %s, "
+            "UPDATE users SET full_name = %s, first_name = %s, middle_name = %s, last_name = %s, email = %s, "
             "role_id = (SELECT id FROM roles WHERE name = %s) WHERE id = %s",
-            (form["full_name"], form["email"]
-             or None, form["role"], user["id"]),
+            (form["full_name"], form["first_name"], form["middle_name"] or None, form["last_name"],
+             form["email"], form["role"], user["id"]),
         )
+        if user["student_number"]:        # keep the student record's name in step with the account
+            cursor.execute("UPDATE students SET first_name = %s, middle_name = %s, last_name = %s WHERE user_id = %s",
+                           (form["first_name"], form["middle_name"] or None, form["last_name"], user["id"]))
         log_action(actor_id, "user_updated", "users", f"Updated account '{user['username']}'",
                    affected_record=f"user:{user['id']}", commit=False)
         if role_changed:

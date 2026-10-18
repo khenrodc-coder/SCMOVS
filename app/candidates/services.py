@@ -88,7 +88,7 @@ def list_candidates(args):
     page, pages = get_page(args, total, PER_PAGE)
 
     candidates = fetch_all(
-        "SELECT c.id, c.status, s.student_number, s.first_name, s.last_name, p.name AS position_name, "
+        "SELECT c.id, c.status, c.photo_path, s.student_number, s.first_name, s.last_name, p.name AS position_name, "
         "       e.id AS election_id, e.name AS election_name, e.status AS election_status "
         + joins + where_sql +
         " ORDER BY e.start_at DESC, e.id DESC, ep.display_order, s.last_name, s.first_name LIMIT %s OFFSET %s",
@@ -102,7 +102,7 @@ def list_candidates(args):
 
 def get_candidate(candidate_id):
     return fetch_one(
-        "SELECT c.id, c.election_id, c.student_id, c.position_id, c.platform, c.status, c.remarks, "
+        "SELECT c.id, c.election_id, c.student_id, c.position_id, c.platform, c.photo_path, c.status, c.remarks, "
         "       c.reviewed_at, c.created_at, rv.full_name AS reviewed_by_name, "
         "       s.student_number, s.first_name, s.middle_name, s.last_name, s.user_id, s.year_level, s.section, "
         "       d.name AS department, p.name AS position_name, "
@@ -143,14 +143,14 @@ def valid_position(election_id, position_id):
         (election_id, position_id)) is not None
 
 
-def register_candidate(election, student, position_id, platform, actor_id):
+def register_candidate(election, student, position_id, platform, actor_id, photo_path=None):
     db = get_db()
     cursor = db.cursor()
     try:
         cursor.execute(
-            "INSERT INTO candidates (election_id, student_id, position_id, platform, status, created_by) "
-            "VALUES (%s, %s, %s, %s, 'pending', %s)",
-            (election["id"], student["id"], position_id, platform or None, actor_id))
+            "INSERT INTO candidates (election_id, student_id, position_id, platform, photo_path, status, created_by) "
+            "VALUES (%s, %s, %s, %s, %s, 'pending', %s)",
+            (election["id"], student["id"], position_id, platform or None, photo_path, actor_id))
         new_id = cursor.lastrowid
         log_action(actor_id, "candidate_registered", "candidates",
                    f"Registered candidate {student['student_number']} in '{election['name']}'",
@@ -164,19 +164,21 @@ def register_candidate(election, student, position_id, platform, actor_id):
         cursor.close()
 
 
-def update_candidate(candidate, position_id, platform, actor_id):
+def update_candidate(candidate, position_id, platform, actor_id, photo_path=None):
     """Edit position/platform. An approved candidate goes back to pending (needs a new review)."""
     reset = candidate["status"] == "approved"
     db = get_db()
     cursor = db.cursor()
     try:
+        # photo_path None = keep the existing photo
+        photo_sql, photo_args = ("", ()) if photo_path is None else (", photo_path = %s", (photo_path,))
         if reset:
             cursor.execute("UPDATE candidates SET position_id = %s, platform = %s, status = 'pending', "
-                           "reviewed_by = NULL, reviewed_at = NULL, remarks = NULL WHERE id = %s",
-                           (position_id, platform or None, candidate["id"]))
+                           "reviewed_by = NULL, reviewed_at = NULL, remarks = NULL" + photo_sql + " WHERE id = %s",
+                           (position_id, platform or None) + photo_args + (candidate["id"],))
         else:
-            cursor.execute("UPDATE candidates SET position_id = %s, platform = %s WHERE id = %s",
-                           (position_id, platform or None, candidate["id"]))
+            cursor.execute("UPDATE candidates SET position_id = %s, platform = %s" + photo_sql + " WHERE id = %s",
+                           (position_id, platform or None) + photo_args + (candidate["id"],))
         suffix = " (approval removed, needs a new review)" if reset else ""
         log_action(actor_id, "candidate_updated", "candidates",
                    f"Updated candidate {candidate['student_number']} in '{candidate['election_name']}'{suffix}",
@@ -240,3 +242,38 @@ def review(candidate, action, remarks, actor_id):
         raise
     finally:
         cursor.close()
+
+
+# ============================================================== photo only
+PHOTO_ELECTION_STATUSES = ("draft", "scheduled", "open")
+
+
+def can_change_photo(candidate):
+    """A photo can be replaced on its own until the election closes. It never changes approval or eligibility."""
+    return candidate["election_status"] in PHOTO_ELECTION_STATUSES
+
+
+def update_photo(candidate, photo_path, actor_id):
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        cursor.execute("UPDATE candidates SET photo_path = %s WHERE id = %s", (photo_path, candidate["id"]))
+        log_action(actor_id, "candidate_photo_changed", "candidates",
+                   f"Changed photo of candidate {candidate['student_number']} in '{candidate['election_name']}'",
+                   affected_record=f"candidate:{candidate['id']}", commit=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
+
+
+def student_summary(election, student_number):
+    """For the registration modal: names and department of the student, or the reason they cannot run."""
+    student, problem = find_student_for_election(election, student_number)
+    if problem:
+        return None, problem
+    full = fetch_one("SELECT s.first_name, s.middle_name, s.last_name, d.name AS department "
+                     "FROM students s JOIN departments d ON d.id = s.department_id WHERE s.id = %s", (student["id"],))
+    return full, None

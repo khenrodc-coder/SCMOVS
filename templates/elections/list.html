@@ -10,9 +10,9 @@
         <p class="text-sm text-slate-600">{{ total }} election{{ '' if total == 1 else 's' }} found{% if not status %} (archived elections are hidden){% endif %}</p>
     </div>
     {% if has_permission('elections.manage') %}
-    <a href="{{ url_for('elections.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+    <button type="button" data-modal-url="{{ url_for('elections.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
         <i class="fa-solid fa-plus mr-1"></i>New Election
-    </a>
+    </button>
     {% endif %}
 </div>
 
@@ -63,7 +63,7 @@
                     <div class="flex flex-wrap gap-3">
                         <a href="{{ url_for('elections.detail', election_id=e.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Manage" aria-label="Manage"><i class="fa-solid fa-sliders" aria-hidden="true"></i><span class="sr-only">Manage</span></a>
                         {% if has_permission('elections.manage') and e.status in ['draft', 'scheduled'] %}
-                        <a href="{{ url_for('elections.edit', election_id=e.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                        <button type="button" data-modal-url="{{ url_for('elections.edit', election_id=e.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></button>
                         {% endif %}
                     </div>
                 </td>

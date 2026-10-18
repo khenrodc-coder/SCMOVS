@@ -23,7 +23,7 @@
     </div>
     <div class="flex items-center gap-2">
         {{ status_badge(item.status) }}
-        {% if can_edit %}<a href="{{ url_for(bp ~ '.edit', item_id=item.id) }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+        {% if can_edit %}<button type="button" data-modal-url="{{ url_for(bp ~ '.edit', item_id=item.id) }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-3 py-1.5 rounded-lg">Edit</button>{% endif %}
     </div>
 </div>
 

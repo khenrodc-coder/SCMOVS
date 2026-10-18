@@ -13,9 +13,9 @@
             {% if is_admin %}Open a proposal to review it.{% else %}Only approved {{ cfg.plural|lower }} are official council activities.{% endif %}</p>
     </div>
     {% if can_create and not archived %}
-    <a href="{{ url_for(bp ~ '.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">
+    <button type="button" data-modal-url="{{ url_for(bp ~ '.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white text-sm font-semibold px-4 py-2 rounded-lg">
         <i class="fa-solid fa-plus mr-1"></i>New {{ cfg.label }}
-    </a>
+    </button>
     {% endif %}
 </div>
 

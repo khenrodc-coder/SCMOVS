@@ -21,7 +21,7 @@
     </div>
     <div class="flex items-center gap-2">
         {{ status_badge(council.status) }}
-        {% if is_active %}<a href="{{ url_for('councils.edit', council_id=council.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+        {% if is_active %}<button type="button" data-modal-url="{{ url_for('councils.edit', council_id=council.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</button>{% endif %}
         {% for action, rule in actions.items() if council.status in rule[0] %}
         <form method="post" action="{{ url_for('councils.change_status', council_id=council.id, action=action) }}" data-confirm="{{ labels[action][1] }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

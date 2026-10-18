@@ -1,0 +1,105 @@
+/* Shared Chart.js (v4) helpers: SCMOVS look, dark-mode colours, empty states, pie/bar builders.
+ * Loaded after chart.umd.min.js. Charts re-colour themselves when the Super Admin toggles dark mode. */
+(function () {
+    if (typeof Chart === "undefined") return;
+    var registry = [];
+    var PALETTE = ["#1e3a8a", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#64748b", "#f97316"];
+
+    function isDark() { return document.documentElement.classList.contains("dark"); }
+    function colors() {
+        return isDark()
+            ? { text: "#cbd5e1", grid: "#2a3a5c", tip: "#0b1220", tipText: "#e2e8f0", arc: "#111a2e" }
+            : { text: "#475569", grid: "#e2e8f0", tip: "#172554", tipText: "#ffffff", arc: "#ffffff" };
+    }
+    function defaults() {
+        var c = colors();
+        Chart.defaults.font.family = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+        Chart.defaults.font.size = 12;
+        Chart.defaults.color = c.text;
+        Chart.defaults.borderColor = c.grid;
+        Chart.defaults.elements.bar.borderRadius = 5;
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        Chart.defaults.plugins.legend.labels.boxWidth = 8;
+        Chart.defaults.plugins.legend.labels.padding = 14;
+        Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: c.tip, titleColor: c.tipText, bodyColor: c.tipText, padding: 10, cornerRadius: 8, titleFont: { weight: "700" } });
+    }
+    defaults();
+
+    function restyle(chart) {
+        var c = colors(), o = chart.options;
+        Object.keys(o.scales || {}).forEach(function (k) {
+            var sc = o.scales[k]; sc.ticks = sc.ticks || {}; sc.grid = sc.grid || {};
+            sc.ticks.color = c.text; sc.grid.color = c.grid;
+        });
+        o.plugins = o.plugins || {};
+        o.plugins.legend = o.plugins.legend || {}; o.plugins.legend.labels = Object.assign(o.plugins.legend.labels || {}, { color: c.text });
+        o.plugins.tooltip = Object.assign(o.plugins.tooltip || {}, { backgroundColor: c.tip, titleColor: c.tipText, bodyColor: c.tipText });
+        if (chart.config.type === "pie" || chart.config.type === "doughnut") chart.data.datasets.forEach(function (d) { d.borderColor = c.arc; });
+        chart.update("none");
+    }
+    window.addEventListener("scmovs:theme", function () { defaults(); registry.forEach(restyle); });
+
+    function empty(canvas, text) {
+        canvas.parentElement.innerHTML = '<p class="flex h-full min-h-[120px] items-center justify-center text-sm text-slate-500">' + text + "</p>";
+    }
+    function make(canvasId, config, values, emptyText) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return null;
+        if (!values.some(function (v) { return v !== 0; })) { empty(canvas, emptyText || "No data yet."); return null; }
+        var chart = new Chart(canvas, config); registry.push(chart); restyle(chart); return chart;
+    }
+    function short(label, n) { label = String(label); return label.length > n ? label.slice(0, n - 1) + "\u2026" : label; }
+    function pct(v, total) { return total ? Math.round(v * 1000 / total) / 10 : 0; }
+
+    /* Horizontal bar chart. series = [{label, data, color}] */
+    function hbar(canvasId, labels, series, opts) {
+        opts = opts || {};
+        var all = []; series.forEach(function (s) { all = all.concat(s.data); });
+        return make(canvasId, {
+            type: "bar",
+            data: { labels: labels, datasets: series.map(function (s) { return { label: s.label, data: s.data, backgroundColor: s.color, maxBarThickness: 22 }; }) },
+            options: {
+                indexAxis: "y", responsive: true, maintainAspectRatio: false,
+                layout: { padding: { right: 12 } },
+                scales: {
+                    x: { beginAtZero: true, ticks: Object.assign({ precision: 0 }, opts.xTicks || {}) },
+                    y: { grid: { display: false }, ticks: { autoSkip: false, callback: function (v) { return short(this.getLabelForValue(v), opts.maxLabel || 26); } } }
+                },
+                plugins: {
+                    legend: { display: series.length > 1, position: "bottom" },
+                    tooltip: { callbacks: Object.assign({ title: function (items) { return String(labels[items[0].dataIndex]); } }, opts.tooltip || {}) }
+                }
+            }
+        }, all, opts.emptyText);
+    }
+
+    /* Pie chart with counts and percentages in tooltips and legend. Zero slices are left out and listed in a note. */
+    function pie(canvasId, labels, values, opts) {
+        opts = opts || {};
+        var total = values.reduce(function (a, b) { return a + b; }, 0), keep = [], zero = [];
+        labels.forEach(function (l, i) { (values[i] > 0 ? keep : zero).push(i); });
+        var note = document.getElementById(canvasId + "-note");
+        if (note) note.textContent = zero.length && total ? "No " + (opts.noun || "students") + " yet: " + zero.map(function (i) { return labels[i]; }).join(", ") + "." : "";
+        return make(canvasId, {
+            type: "pie",
+            data: { labels: keep.map(function (i) { return labels[i]; }),
+                    datasets: [{ data: keep.map(function (i) { return values[i]; }), backgroundColor: keep.map(function (_, n) { return PALETTE[n % PALETTE.length]; }), borderWidth: 2, borderColor: colors().arc }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: "right", labels: { generateLabels: function (chart) {
+                        var d = chart.data;
+                        return d.labels.map(function (l, i) { var v = d.datasets[0].data[i]; return { text: short(l, 22) + " \u2014 " + v + " (" + pct(v, total) + "%)", fillStyle: d.datasets[0].backgroundColor[i], strokeStyle: d.datasets[0].backgroundColor[i], fontColor: colors().text, index: i, hidden: false, pointStyle: "circle" }; });
+                    } } },
+                    tooltip: { callbacks: { label: function (c) { return " " + c.label + ": " + c.parsed + " " + (opts.noun || "students") + " (" + pct(c.parsed, total) + "%)"; } } }
+                }
+            }
+        }, values, opts.emptyText || "No students yet.");
+    }
+
+    window.SCMOVS_charts = { make: make, hbar: hbar, pie: pie, palette: PALETTE, vbar: function (id, labels, series, opts) {
+        opts = opts || {}; var all = []; series.forEach(function (s) { all = all.concat(s.data); });
+        return make(id, { type: "bar", data: { labels: labels, datasets: series.map(function (s) { return { label: s.label, data: s.data, backgroundColor: s.color }; }) },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: series.length > 1 || !!opts.legend } , tooltip: { callbacks: opts.tooltip || {} } },
+                scales: { y: { beginAtZero: true, ticks: opts.yTicks || { precision: 0 } } } } }, all, opts.emptyText); } };
+})();

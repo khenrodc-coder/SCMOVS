@@ -1,0 +1,14 @@
+﻿{% macro avatar(photo_path, full_name, size_classes='', text_classes='', extra_classes='') %}
+    {% set photo = config.get('UPLOAD_FOLDER') and photo_path %}
+    {% set photo_src = photo_url(photo_path) if photo else none %}
+    {% set name = (full_name or 'User')|trim %}
+    {% set parts = name.split() %}
+    {% set initials = (parts[0][0] ~ (parts[-1][0] if parts|length > 1 else ''))|upper %}
+    <span class="relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-blue-100 font-bold text-blue-900 {{ size_classes }} {{ text_classes }} {{ extra_classes }}">
+        {% if photo_src %}
+            <img src="{{ photo_src }}" alt="{{ name }}" class="absolute inset-0 h-full w-full rounded-full object-cover" loading="lazy">
+        {% else %}
+            <span aria-label="{{ name }}" title="{{ name }}">{{ initials }}</span>
+        {% endif %}
+    </span>
+{% endmacro %}

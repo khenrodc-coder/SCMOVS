@@ -20,10 +20,10 @@
         <p class="text-sm text-slate-600">{{ total }} student{{ '' if total == 1 else 's' }} found{% if not status %} (archived students are hidden){% endif %}</p>
     </div>
     {% if has_permission('students.manage') %}
-    <a href="{{ url_for('students.create') }}"
+    <button type="button" data-modal-url="{{ url_for('students.create') }}"
        class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
         <i class="fa-solid fa-user-plus mr-1"></i>New Student
-    </a>
+    </button>
     {% endif %}
 </div>
 
@@ -63,6 +63,7 @@
     </div>
 </form>
 
+<div id="list-region">
 <div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
     {% if students %}
     <table class="w-full text-sm">
@@ -97,7 +98,7 @@
                 {% if has_permission('students.manage') %}
                 <td class="px-4 py-2">
                     <div class="flex flex-wrap items-center gap-3">
-                        <a href="{{ url_for('students.edit', student_id=s.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                        <button type="button" data-modal-url="{{ url_for('students.edit', student_id=s.id) }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></button>
 
                         {% for target in transitions[s.status] %}
                         {% set label = 'Restore' if s.status == 'archived' else status_labels[target] %}
@@ -111,12 +112,8 @@
                         {% endfor %}
 
                         {% if s.status != 'archived' %}
-                        <form method="post" action="{{ url_for('students.reset_password', student_id=s.id) }}"
-                              data-confirm="Reset the password of {{ s.student_number }}? A new temporary password will be generated.">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <input type="hidden" name="next" value="{{ request.full_path }}">
-                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-amber-700" title="{{ 'Reset password' }}" aria-label="{{ 'Reset password' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Reset password'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Reset password' }}</span></button>
-                        </form>
+                        <button type="button" data-modal-url="{{ url_for('students.reset_password', student_id=s.id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-amber-700" title="Reset password" aria-label="Reset password"><i class="fa-solid fa-key" aria-hidden="true"></i><span class="sr-only">Reset password</span></button>
                         {% endif %}
                     </div>
                 </td>
@@ -134,4 +131,5 @@
 </div>
 
 {{ pagination('students.list_page', page, pages, filters, total) }}
+</div>
 {% endblock %}

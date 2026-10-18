@@ -18,10 +18,10 @@
         <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Users</h1>
         <p class="text-sm text-slate-600">{{ total }} account{{ '' if total == 1 else 's' }} found</p>
     </div>
-    <a href="{{ url_for('admin.user_create') }}"
+    <button type="button" data-modal-url="{{ url_for('admin.user_create') }}"
        class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
         <i class="fa-solid fa-user-plus mr-1"></i>New User
-    </a>
+    </button>
 </div>
 
 <form method="get" action="{{ url_for('admin.users_list') }}"
@@ -51,6 +51,7 @@
     </div>
 </form>
 
+<div id="list-region">
 <div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
     {% if users %}
     <table class="w-full text-sm">
@@ -69,7 +70,9 @@
         {% for u in users %}
             <tr>
                 <td class="px-4 py-2 font-medium">
-                    {{ u.full_name }}
+                    <span class="inline-flex items-center gap-2">
+                    {% if photo_url(u.photo_path) %}<img src="{{ photo_url(u.photo_path) }}" alt="" class="h-7 w-7 rounded-full object-cover">{% else %}<span class="grid h-7 w-7 place-items-center rounded-full bg-slate-200 text-slate-500"><i class="fa-solid fa-user text-xs"></i></span>{% endif %}
+                    {{ u.full_name }}</span>
                     {% if u.id == current_user.id %}<span class="ml-1 text-xs bg-slate-200 rounded-full px-2 py-0.5">You</span>{% endif %}
                 </td>
                 <td class="px-4 py-2">{{ u.username }}</td>
@@ -87,8 +90,8 @@
                 <td class="px-4 py-2 whitespace-nowrap">{{ u.last_login_at|dt }}</td>
                 <td class="px-4 py-2">
                     <div class="flex flex-wrap items-center gap-2">
-                        <a href="{{ url_for('admin.user_edit', user_id=u.id) }}"
-                           class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></a>
+                        <button type="button" data-modal-url="{{ url_for('admin.user_edit', user_id=u.id) }}"
+                           class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700" title="Edit" aria-label="Edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="sr-only">Edit</span></button>
 
                         {% if u.id != current_user.id %}
                         <form method="post" action="{{ url_for('admin.user_toggle_active', user_id=u.id) }}"
@@ -98,11 +101,8 @@
                             <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 {{ 'text-red-700' if u.is_active else 'text-green-700' }}" title="{{ 'Deactivate' if u.is_active else 'Activate' }}" aria-label="{{ 'Deactivate' if u.is_active else 'Activate' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Deactivate' if u.is_active else 'Activate'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Deactivate' if u.is_active else 'Activate' }}</span></button>
                         </form>
 
-                        <form method="post" action="{{ url_for('admin.user_reset_password', user_id=u.id) }}"
-                              data-confirm="Reset the password of {{ u.full_name }}? A new temporary password will be generated.">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-amber-700" title="{{ 'Reset password' }}" aria-label="{{ 'Reset password' }}"><i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Reset password'), 'fa-circle-dot') }}" aria-hidden="true"></i><span class="sr-only">{{ 'Reset password' }}</span></button>
-                        </form>
+                        <button type="button" data-modal-url="{{ url_for('admin.user_reset_password', user_id=u.id) }}"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-amber-700" title="Reset password" aria-label="Reset password"><i class="fa-solid fa-key" aria-hidden="true"></i><span class="sr-only">Reset password</span></button>
                         {% endif %}
                     </div>
                 </td>
@@ -119,4 +119,5 @@
 </div>
 
 {{ pagination('admin.users_list', page, pages, filters, total) }}
+</div>
 {% endblock %}

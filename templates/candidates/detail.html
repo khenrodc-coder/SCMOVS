@@ -14,13 +14,22 @@
 
 <div class="mt-2 flex flex-wrap items-start justify-between gap-3">
     <div>
+        <div class="flex items-center gap-4">
+        <div class="shrink-0 text-center">
+            {% if photo_url(candidate.photo_path) %}<img src="{{ photo_url(candidate.photo_path) }}" alt="Photo of {{ candidate.first_name }} {{ candidate.last_name }}" class="h-20 w-20 rounded-full border-2 border-amber-400 object-cover">
+            {% else %}<span class="grid h-20 w-20 place-items-center rounded-full border-2 border-slate-300 bg-slate-100 text-slate-400"><i class="fa-solid fa-user text-3xl"></i></span>{% endif %}
+            {% if photo_editable %}<button type="button" id="cand-photo-btn" class="mt-1 text-xs font-semibold text-blue-800 hover:underline"><i class="fa-solid fa-camera"></i> {{ 'Change photo' if candidate.photo_path else 'Add photo' }}</button>
+            <input type="file" id="cand-photo-input" accept="image/jpeg,image/png,image/webp" class="sr-only" aria-label="Choose candidate photo">{% endif %}
+        </div>
+        <div>
         <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">{{ candidate.first_name }}{{ ' ' ~ candidate.middle_name if candidate.middle_name }} {{ candidate.last_name }}</h1>
         <p class="mt-1 text-sm text-slate-600">Candidate for <strong>{{ candidate.position_name }}</strong> in
             <a href="{{ url_for('elections.detail', election_id=candidate.election_id) }}" class="text-blue-700 hover:underline">{{ candidate.election_name }}</a></p>
+        </div></div>
     </div>
     <div class="flex items-center gap-2">
         {{ status_badge(candidate.status) }}
-        {% if can_edit %}<a href="{{ url_for('candidates.edit', candidate_id=candidate.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+        {% if can_edit %}<button type="button" data-modal-url="{{ url_for('candidates.edit', candidate_id=candidate.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</button>{% endif %}
     </div>
 </div>
 
@@ -73,4 +82,22 @@
     <p class="text-sm text-slate-500">No review action is available for a {{ candidate.status }} candidate while the election is {{ candidate.election_status|replace('_', ' ') }}.</p>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if photo_editable %}<script>
+(function () {
+    var btn = document.getElementById("cand-photo-btn"), inp = document.getElementById("cand-photo-input"); if (!btn) return;
+    var token = document.querySelector('meta[name="csrf-token"]').content;
+    btn.addEventListener("click", function () { inp.click(); });
+    inp.addEventListener("change", function () {
+        var f = inp.files[0]; if (!f) return;
+        if (["image/jpeg", "image/png", "image/webp"].indexOf(f.type) < 0 || f.size > 5 * 1024 * 1024) { Swal.fire({ icon: "error", title: "Choose a JPG, PNG or WebP image up to 5 MB." }); inp.value = ""; return; }
+        var fd = new FormData(); fd.append("photo", f); btn.disabled = true;
+        fetch("{{ url_for('candidates.change_photo', candidate_id=candidate.id) }}", { method: "POST", body: fd, headers: { "X-Requested-With": "fetch", "X-CSRFToken": token }, credentials: "same-origin" })
+            .then(function (r) { return r.json(); }).then(function (d) { if (d.ok) location.reload(); else { btn.disabled = false; Swal.fire({ icon: "error", title: (d.errors && d.errors.photo) || d.message }); } })
+            .catch(function () { btn.disabled = false; Swal.fire({ icon: "error", title: "Network error. The old photo was kept." }); });
+    });
+})();
+</script>{% endif %}
 {% endblock %}

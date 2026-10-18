@@ -2,6 +2,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 from app.auth.decorators import access_required
 from app.elections import services
+from app.modal_utils import json_error_list, json_ok, json_redirect, json_reload, modal_notice, wants_json
 
 elections_bp = Blueprint("elections", __name__, url_prefix="/elections")
 
@@ -27,9 +28,9 @@ def _get_or_404(election_id):
     return election
 
 
-def _form_page(mode, form, errors, election=None, locked=False):
+def _form_fragment(mode, form, election=None, locked=False):
     departments, years = services.get_form_options(election)
-    return render_template("elections/form.html", mode=mode, form=form, errors=errors, election=election,
+    return render_template("elections/_form_modal.html", mode=mode, form=form, election=election,
                            locked=locked, departments=departments, school_years=years)
 
 
@@ -48,16 +49,18 @@ def list_page():
 @elections_bp.route("/new", methods=["GET", "POST"])
 @manage_access
 def create():
-    form, errors = {key: "" for key in FORM_FIELDS}, []
-    if request.method == "POST":
-        form = _read_form()
-        errors = services.validate_election(form)
-        if not errors:
-            election_id = services.create_election(form, g.user["id"])
-            flash(
-                f"Election '{form['name']}' was created as a draft. Now add its positions.", "success")
-            return redirect(url_for("elections.detail", election_id=election_id))
-    return _form_page("create", form, errors)
+    """New Election modal. GET returns the HTML; POST (fetch) returns JSON."""
+    if request.method == "GET":
+        if not wants_json():
+            return redirect(url_for("elections.list_page"))
+        return _form_fragment("create", {key: "" for key in FORM_FIELDS})
+    form = _read_form()
+    errors = services.validate_election(form)
+    if errors:
+        return json_error_list(errors)
+    election_id = services.create_election(form, g.user["id"])
+    return json_redirect(f"Election '{form['name']}' was created as a draft. Now add its positions.",
+                         url_for("elections.detail", election_id=election_id))
 
 
 # ---------------------------------------------------------------- detail
@@ -83,27 +86,32 @@ def detail(election_id):
 def edit(election_id):
     election = _get_or_404(election_id)
     if election["status"] not in services.EDITABLE:
-        flash("Only draft or scheduled elections can be edited.", "error")
+        message = "Only draft or scheduled elections can be edited."
+        if wants_json():
+            return modal_notice(message, "Election can't be edited") if request.method == "GET" else json_error_list([message], 409)
+        flash(message, "error")
+        return redirect(url_for("elections.detail", election_id=election_id))
+    if request.method == "GET" and not wants_json():
         return redirect(url_for("elections.detail", election_id=election_id))
 
     # department and school year decide who may be a candidate
     locked = election["candidate_count"] > 0
-    form = {"name": election["name"], "department_id": str(election["department_id"]),
-            "school_year_id": str(election["school_year_id"]),
-            "start_at": election["start_at"].strftime(services.DT_FORMAT),
-            "end_at": election["end_at"].strftime(services.DT_FORMAT)}
-    errors = []
-    if request.method == "POST":
-        form = _read_form()
-        if locked:
-            form["department_id"] = str(election["department_id"])
-            form["school_year_id"] = str(election["school_year_id"])
-        errors = services.validate_election(form, locked=locked)
-        if not errors:
-            services.update_election(election, form, g.user["id"])
-            flash(f"Election '{form['name']}' was updated.", "success")
-            return redirect(url_for("elections.detail", election_id=election_id))
-    return _form_page("edit", form, errors, election, locked)
+    if request.method == "GET":
+        form = {"name": election["name"], "department_id": str(election["department_id"]),
+                "school_year_id": str(election["school_year_id"]),
+                "start_at": election["start_at"].strftime(services.DT_FORMAT),
+                "end_at": election["end_at"].strftime(services.DT_FORMAT)}
+        return _form_fragment("edit", form, election, locked)
+
+    form = _read_form()
+    if locked:
+        form["department_id"] = str(election["department_id"])
+        form["school_year_id"] = str(election["school_year_id"])
+    errors = services.validate_election(form, locked=locked)
+    if errors:
+        return json_error_list(errors)
+    services.update_election(election, form, g.user["id"])
+    return json_reload(f"Election '{form['name']}' was updated.")
 
 
 # ----------------------------------------------------------- status change

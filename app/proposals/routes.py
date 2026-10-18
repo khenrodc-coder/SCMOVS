@@ -1,6 +1,7 @@
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from app.auth.decorators import access_any, access_required
+from app.modal_utils import json_error_list, json_ok, json_redirect, json_reload, modal_notice, wants_json
 from app.proposals import services
 
 ROLES = ("super_admin", "school_admin", "council_officer")
@@ -22,8 +23,8 @@ def make_blueprint(cfg):
             abort(404)
         return item
 
-    def form_page(mode, form, errors, item=None, councils=None):
-        return render_template("proposals/form.html", cfg=cfg, mode=mode, form=form, errors=errors, item=item,
+    def form_fragment(mode, form, item=None, councils=None):
+        return render_template("proposals/_form_modal.html", cfg=cfg, mode=mode, form=form, item=item,
                                councils=councils or [])
 
     # ---------------------------------------------------------------- list
@@ -43,26 +44,29 @@ def make_blueprint(cfg):
     def create():
         councils = services.my_councils(g.user["id"])
         if not councils:
-            flash(
-                "You are not an active officer of any council, so you cannot create proposals.", "error")
+            message = "You are not an active officer of any council, so you cannot create proposals."
+            if wants_json():
+                return modal_notice(message, f"Can't create an {cfg['label'].lower()} yet") if request.method == "GET" else json_error_list([message], 409)
+            flash(message, "error")
             return redirect(url_for(f"{cfg['blueprint']}.list_page"))
 
-        form, errors = services.empty_form(cfg), []
-        form["council_id"] = str(councils[0]["id"])
-        if request.method == "POST":
-            form = {column: request.form.get(
-                column, "").strip() for column in cfg["columns"]}
-            form["council_id"] = request.form.get("council_id", "").strip()
-            errors = services.validate(cfg, form)
-            if not any(str(c["id"]) == form["council_id"] for c in councils):
-                errors.append("Please choose one of your councils.")
-            if not errors:
-                item_id = services.create_item(
-                    cfg, form, int(form["council_id"]), g.user)
-                flash(
-                    f"{cfg['label']} saved as a draft. Submit it when it is ready for review.", "success")
-                return redirect(url_for(f"{cfg['blueprint']}.detail", item_id=item_id))
-        return form_page("create", form, errors, councils=councils)
+        if request.method == "GET":
+            if not wants_json():
+                return redirect(url_for(f"{cfg['blueprint']}.list_page"))
+            form = services.empty_form(cfg)
+            form["council_id"] = str(councils[0]["id"])
+            return form_fragment("create", form, councils=councils)
+
+        form = {column: request.form.get(column, "").strip() for column in cfg["columns"]}
+        form["council_id"] = request.form.get("council_id", "").strip()
+        errors = services.validate(cfg, form)
+        if not any(str(c["id"]) == form["council_id"] for c in councils):
+            errors.append("Please choose one of your councils.")
+        if errors:
+            return json_error_list(errors)
+        item_id = services.create_item(cfg, form, int(form["council_id"]), g.user)
+        return json_redirect(f"{cfg['label']} saved as a draft. Submit it when it is ready for review.",
+                             url_for(f"{cfg['blueprint']}.detail", item_id=item_id))
 
     # -------------------------------------------------------------- detail
 
@@ -82,21 +86,23 @@ def make_blueprint(cfg):
     def edit(item_id):
         item = get_or_404(item_id)
         if not services.can_edit(cfg, g.user, item):
-            flash(
-                f"Only the author can edit a draft or rejected {cfg['label'].lower()}.", "error")
+            message = f"Only the author can edit a draft or rejected {cfg['label'].lower()}."
+            if wants_json():
+                return modal_notice(message, "Can't edit this") if request.method == "GET" else json_error_list([message], 409)
+            flash(message, "error")
             return redirect(url_for(f"{cfg['blueprint']}.detail", item_id=item_id))
-
-        form, errors = services.form_from_item(cfg, item), []
-        if request.method == "POST":
-            form = {column: request.form.get(
-                column, "").strip() for column in cfg["columns"]}
-            errors = services.validate(cfg, form)
-            if not errors:
-                services.update_item(cfg, item, form, g.user)
-                flash(f"{cfg['label']} saved." + (" It is a draft again: submit it when ready."
-                                                  if item["status"] == "rejected" else ""), "success")
+        if request.method == "GET":
+            if not wants_json():
                 return redirect(url_for(f"{cfg['blueprint']}.detail", item_id=item_id))
-        return form_page("edit", form, errors, item)
+            return form_fragment("edit", services.form_from_item(cfg, item), item)
+
+        form = {column: request.form.get(column, "").strip() for column in cfg["columns"]}
+        errors = services.validate(cfg, form)
+        if errors:
+            return json_error_list(errors)
+        services.update_item(cfg, item, form, g.user)
+        return json_reload(f"{cfg['label']} saved." + (" It is a draft again: submit it when ready."
+                                                      if item["status"] == "rejected" else ""))
 
     # ------------------------------------------------------------- actions
 

@@ -35,6 +35,11 @@ CREATE TABLE users (
     email VARCHAR(120) NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     full_name VARCHAR(120) NOT NULL,
+    first_name VARCHAR(60) NULL,
+    middle_name VARCHAR(60) NULL,
+    last_name VARCHAR(60) NULL,
+    photo_path VARCHAR(255) NULL,
+    theme_preference ENUM('light','dark') NOT NULL DEFAULT 'light',
     role_id INT UNSIGNED NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     must_change_password TINYINT(1) NOT NULL DEFAULT 0,
@@ -107,7 +112,7 @@ CREATE TABLE positions (
     display_order INT UNSIGNED NOT NULL DEFAULT 0,
     seats INT UNSIGNED NOT NULL DEFAULT 1,           -- how many people hold this position per council (Phase 5A)   -- default ballot order (Phase 4B)
     is_active TINYINT(1) NOT NULL DEFAULT 1,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_position_seats CHECK (seats BETWEEN 1 AND 20)
 ) ENGINE=InnoDB;
 
@@ -360,7 +365,6 @@ CREATE TABLE documents (
     title VARCHAR(200) NOT NULL,
     description VARCHAR(500) NULL,
     category ENUM('report','minutes','proposal','financial','memo','other') NOT NULL DEFAULT 'other',  
-    original_filename VARCHAR(255) NOT NULL, 
     original_filename VARCHAR(255) NOT NULL,
     stored_filename VARCHAR(255) NOT NULL UNIQUE,   -- generated safe name inside uploads/
     mime_type VARCHAR(100) NOT NULL,
@@ -379,7 +383,7 @@ CREATE TABLE documents (
     FOREIGN KEY (project_id) REFERENCES projects(id),
     FOREIGN KEY (meeting_id) REFERENCES meetings(id),
     INDEX idx_documents_council (council_id),
-    INDEX idx_documents_library (council_id, is_archived, category),
+    INDEX idx_documents_library (council_id, is_archived, category)
 ) ENGINE=InnoDB;
 
 -- =====================================================
@@ -606,9 +610,6 @@ CREATE TABLE backups (
     completed_at DATETIME NULL,
     FOREIGN KEY (created_by) REFERENCES users(id),
     INDEX idx_backups_created (created_at)
-        checksum CHAR(64) NULL,
-    ballots_excluded TINYINT(1) NOT NULL DEFAULT 0,   -- 1 = backup made WITHOUT ballots/votes (ballot secrecy)
-    status ENUM('in_progress','completed','failed') NOT NULL DEFAULT 'in_progress',
 ) ENGINE=InnoDB;
 
 CREATE TABLE system_settings (
@@ -618,6 +619,28 @@ CREATE TABLE system_settings (
     updated_by INT UNSIGNED NULL,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (updated_by) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+-- =====================================================
+-- PASSWORD RECOVERY (migration 005)
+-- =====================================================
+CREATE TABLE password_reset_tokens (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    user_id INT UNSIGNED NOT NULL,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    used_at DATETIME NULL,
+    requested_ip VARCHAR(45) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_prt_user (user_id, created_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE password_reset_requests (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    ip_address VARCHAR(45) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_prr_ip (ip_address, created_at)
 ) ENGINE=InnoDB;
 
 -- =====================================================

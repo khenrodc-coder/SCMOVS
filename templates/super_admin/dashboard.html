@@ -20,7 +20,7 @@
 {% endmacro %}
 
 {% block content %}
-<div class="flex flex-col gap-3 xl:h-[calc(100vh-7.75rem)] xl:min-h-[520px]">
+<div class="mx-auto flex w-full max-w-[1400px] flex-col gap-3 xl:h-[calc(100vh-7.75rem)] xl:min-h-[520px]">
 
     <div class="flex flex-wrap items-end justify-between gap-2">
         <div>
@@ -30,13 +30,9 @@
         <span class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i>School year: {{ stats.active_school_year }}</span>
     </div>
 
-    <section class="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6" aria-label="Statistics">
+    <section class="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:grid-cols-4" aria-label="Statistics">
         {{ stat_card('fa-users', 'Total users', stats.total_users, stats.active_users ~ ' active') }}
-        {{ stat_card('fa-user-graduate', 'Total students', stats.total_students) }}
         {{ stat_card('fa-check-to-slot', 'Active elections', stats.active_elections) }}
-        {{ stat_card('fa-chart-pie', 'Voting participation', stats.participation_pct ~ '%', stats.participation_note) }}
-        {{ stat_card('fa-building-columns', 'Active departments', stats.active_departments) }}
-        {{ stat_card('fa-people-group', 'Council officers', stats.active_officers, 'active') }}
         {{ stat_card('fa-calendar-days', 'Events', stats.events) }}
         {{ stat_card('fa-diagram-project', 'Projects', stats.projects) }}
         {{ stat_card('fa-hourglass-half', 'Pending candidates', stats.pending_candidates, 'of ' ~ stats.candidates ~ ' registered', highlight=stats.pending_candidates) }}
@@ -56,7 +52,7 @@
             </div>
             <div class="min-h-[280px] flex-1 p-3 xl:min-h-0">
                 <div id="panel-participation" role="tabpanel" aria-labelledby="tab-participation" class="h-full"><div class="relative h-full"><canvas id="chart-participation"></canvas></div></div>
-                <div id="panel-departments" role="tabpanel" aria-labelledby="tab-departments" class="hidden h-full"><div class="relative h-full"><canvas id="chart-departments"></canvas></div></div>
+                <div id="panel-departments" role="tabpanel" aria-labelledby="tab-departments" class="hidden h-full"><div class="flex h-full flex-col"><div class="relative min-h-0 flex-1"><canvas id="chart-departments"></canvas></div><p id="chart-departments-note" class="mt-1 text-center text-xs text-slate-500"></p></div></div>
                 <div id="panel-status" role="tabpanel" aria-labelledby="tab-status" class="hidden h-full"><div class="relative h-full"><canvas id="chart-status"></canvas></div></div>
                 <div id="panel-finance" role="tabpanel" aria-labelledby="tab-finance" class="hidden h-full"><div class="relative h-full"><canvas id="chart-finance"></canvas></div></div>
             </div>
@@ -120,22 +116,7 @@
         document.getElementById('scmovs-charts-data').textContent
     );
 </script>
-<script>
-    // Match charts to the SCMOVS design system (fonts, grid, legend, tooltip).
-    if (window.Chart) {
-        Chart.defaults.font.family = 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-        Chart.defaults.font.size = 12;
-        Chart.defaults.color = '#475569';
-        Chart.defaults.borderColor = '#e2e8f0';
-        Chart.defaults.elements.bar.borderRadius = 6;
-        Chart.defaults.elements.arc.borderWidth = 2;
-        Chart.defaults.elements.arc.borderColor = '#ffffff';
-        Chart.defaults.plugins.legend.labels.usePointStyle = true;
-        Chart.defaults.plugins.legend.labels.boxWidth = 8;
-        Chart.defaults.plugins.legend.labels.padding = 16;
-        Object.assign(Chart.defaults.plugins.tooltip, { backgroundColor: '#172554', padding: 10, cornerRadius: 8, titleFont: { weight: '700' } });
-    }
-</script>
+<script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
 <script src="{{ url_for('static', filename='js/super_admin_dashboard.js') }}"></script>
 <script>
     // Tabs for the analytics and activity panels (one visible at a time so the dashboard fits the screen).

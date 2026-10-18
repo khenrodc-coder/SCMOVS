@@ -9,9 +9,9 @@
         <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Councils</h1>
         <p class="text-sm text-slate-600">{{ total }} council{{ '' if total == 1 else 's' }} found{% if not status %} (archived councils are hidden){% endif %}. This is also the council history.</p>
     </div>
-    <a href="{{ url_for('councils.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+    <button type="button" data-modal-url="{{ url_for('councils.create') }}" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
         <i class="fa-solid fa-plus mr-1"></i>New Council
-    </a>
+    </button>
 </div>
 
 <form method="get" action="{{ url_for('councils.list_page') }}"

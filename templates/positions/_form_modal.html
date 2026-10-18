@@ -1,0 +1,10 @@
+{% from "components/modal.html" import modal, field, textarea_field %}
+{% set create = mode == 'create' %}
+{% call modal('New Position' if create else 'Edit Position', 'fa-briefcase',
+              url_for('positions.create') if create else url_for('positions.edit', position_id=position.id),
+              'Create Position' if create else 'Save Changes', subtitle='' if create else position.name) %}
+    {{ field('name', 'Name', form.get('name', ''), required=true, maxlength=80) }}
+    {{ textarea_field('description', 'Description', form.get('description', ''), maxlength=255, rows=3) }}
+    {{ field('seats', 'Seats', form.get('seats', '1'), type='number', required=true, hint='How many people hold this position per council (1-20).', extra='min="1" max="20" inputmode="numeric"') }}
+    {% if create %}<p class="text-xs text-slate-500">New positions are added at the bottom of the order. Use the arrows on the list to move them.</p>{% endif %}
+{% endcall %}

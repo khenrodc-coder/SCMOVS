@@ -22,17 +22,17 @@ def get_department(department_id):
 
 
 def validate_department(form, department_id=None):
-    """Return a list of error messages (empty = valid). form: name, code (already upper-case)."""
-    errors = []
+    """Return {field: message} (empty = valid). form: name, code (already upper-case)."""
+    errors = {}
     if not 2 <= len(form["name"]) <= 60:
-        errors.append("Department name must be between 2 and 60 characters.")
+        errors["name"] = "Department name must be between 2 and 60 characters."
     elif fetch_one("SELECT id FROM departments WHERE name = %s AND id <> %s", (form["name"], department_id or 0)):
-        errors.append("A department with that name already exists.")
+        errors["name"] = "A department with that name already exists."
 
     if not CODE_RE.match(form["code"]):
-        errors.append("Code must be 2-10 characters: capital letters and numbers only (example: COL).")
+        errors["code"] = "Code must be 2-10 characters: capital letters and numbers only (example: COL)."
     elif fetch_one("SELECT id FROM departments WHERE code = %s AND id <> %s", (form["code"], department_id or 0)):
-        errors.append("That department code is already used.")
+        errors["code"] = "That department code is already used."
     return errors
 
 

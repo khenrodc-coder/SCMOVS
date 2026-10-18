@@ -1,6 +1,7 @@
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from app.auth.decorators import access_any, access_required
+from app.modal_utils import json_error_list, json_ok, json_redirect, json_reload, modal_notice, wants_json
 from app.documents import services as documents
 from app.finance import services
 
@@ -27,8 +28,8 @@ def make_blueprint(cfg):
     def read_form():
         return {field: request.form.get(field, "").strip() for field in cfg["fields"]}
 
-    def form_page(mode, form, errors, item=None, activities=None):
-        return render_template("finance/form.html", cfg=cfg, mode=mode, form=form, errors=errors, item=item,
+    def form_fragment(mode, form, item=None, activities=None):
+        return render_template("finance/_form_modal.html", cfg=cfg, mode=mode, form=form, item=item,
                                activities=activities or [], activity_key=request.form.get("activity", ""))
 
     # ---------------------------------------------------------------- list
@@ -48,33 +49,33 @@ def make_blueprint(cfg):
     def create():
         activities = services.eligible_activities(g.user)
         if not activities:
-            flash("Money can only be requested for an APPROVED event or project of your council. There is none yet.", "error")
+            message = "Money can only be requested for an APPROVED event or project of your council. There is none yet."
+            if wants_json():
+                return modal_notice(message, "No approved activity yet") if request.method == "GET" else json_error_list([message], 409)
+            flash(message, "error")
             return redirect(url_for(f"{endpoint}.list_page"))
+        if request.method == "GET":
+            if not wants_json():
+                return redirect(url_for(f"{endpoint}.list_page"))
+            return form_fragment("create", services.empty_form(cfg), activities=activities)
 
-        form, errors = services.empty_form(cfg), []
-        if request.method == "POST":
-            form = read_form()
-            activity = next(
-                (a for a in activities if a["key"] == request.form.get("activity", "")), None)
-            errors = services.validate(cfg, form)
-            if activity is None:
-                errors.append(
-                    "Please choose one of your approved events or projects.")
-            info = None
-            if not errors:
-                info, upload_error = documents.prepare_upload(
-                    request.files.get("document"))
-                if upload_error:
-                    errors.append(upload_error)
-            if not errors:
-                item_id, error = services.create_item(
-                    cfg, form, activity, info, g.user)
-                if error is None:
-                    flash(
-                        f"{cfg['label']} saved as a draft. Submit it when it is ready for review.", "success")
-                    return redirect(url_for(f"{endpoint}.detail", item_id=item_id))
-                errors.append(error)
-        return form_page("create", form, errors, activities=activities)
+        form = read_form()
+        activity = next((a for a in activities if a["key"] == request.form.get("activity", "")), None)
+        errors = services.validate(cfg, form)
+        if activity is None:
+            errors.append("Please choose one of your approved events or projects.")
+        info = None
+        if not errors:
+            info, upload_error = documents.prepare_upload(request.files.get("document"))
+            if upload_error:
+                errors.append(upload_error)
+        if errors:
+            return json_error_list(errors)
+        item_id, error = services.create_item(cfg, form, activity, info, g.user)
+        if error is not None:
+            return json_error_list([error])
+        return json_redirect(f"{cfg['label']} saved as a draft. Submit it when it is ready for review.",
+                             url_for(f"{endpoint}.detail", item_id=item_id))
 
     # -------------------------------------------------------------- detail
 
@@ -96,26 +97,28 @@ def make_blueprint(cfg):
     def edit(item_id):
         item = get_or_404(item_id)
         if not services.can_edit(cfg, g.user, item):
-            flash(
-                f"Only the author can edit a draft or rejected {cfg['label'].lower()}.", "error")
+            message = f"Only the author can edit a draft or rejected {cfg['label'].lower()}."
+            if wants_json():
+                return modal_notice(message, "Can't edit this") if request.method == "GET" else json_error_list([message], 409)
+            flash(message, "error")
             return redirect(url_for(f"{endpoint}.detail", item_id=item_id))
-
-        form, errors = services.form_from_item(cfg, item), []
-        if request.method == "POST":
-            form = read_form()
-            errors = services.validate(cfg, form)
-            info = None
-            if not errors:
-                info, upload_error = documents.prepare_upload(
-                    request.files.get("document"))
-                if upload_error:
-                    errors.append(upload_error)
-            if not errors:
-                services.update_item(cfg, item, form, info, g.user)
-                flash(f"{cfg['label']} saved." + (" It is a draft again: submit it when ready."
-                                                  if item["status"] == "rejected" else ""), "success")
+        if request.method == "GET":
+            if not wants_json():
                 return redirect(url_for(f"{endpoint}.detail", item_id=item_id))
-        return form_page("edit", form, errors, item)
+            return form_fragment("edit", services.form_from_item(cfg, item), item)
+
+        form = read_form()
+        errors = services.validate(cfg, form)
+        info = None
+        if not errors:
+            info, upload_error = documents.prepare_upload(request.files.get("document"))
+            if upload_error:
+                errors.append(upload_error)
+        if errors:
+            return json_error_list(errors)
+        services.update_item(cfg, item, form, info, g.user)
+        return json_reload(f"{cfg['label']} saved." + (" It is a draft again: submit it when ready."
+                                                      if item["status"] == "rejected" else ""))
 
     # ------------------------------------------------------------- actions
 

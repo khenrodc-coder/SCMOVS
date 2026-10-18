@@ -1,0 +1,485 @@
+--- TRIGGER 1 ---
+CREATE TRIGGER `trg_audit_logs_bd` BEFORE DELETE ON `audit_logs` FOR EACH ROW BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Audit logs cannot be deleted.';
+END
+$$
+DELIMITER ;
+DELIMITER $$
+
+
+--- TRIGGER 2 ---
+CREATE TRIGGER `trg_audit_logs_bu` BEFORE UPDATE ON `audit_logs` FOR EACH ROW BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Audit logs cannot be modified.';
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `backups`
+--
+
+CREATE TABLE `backups` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `filename` varchar(255) NOT NULL,
+  `file_size` bigint(20) UNSIGNED DEFAULT NULL,
+  `status` enum('in_progress','completed','failed') NOT NULL DEFAULT 'in_progress',
+  `note` varchar(255) DEFAULT NULL,
+  `created_by` int(10) UNSIGNED NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `completed_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `backups`
+--
+
+INSERT INTO `backups` (`id`, `filename`, `file_size`, `status`, `note`, `created_by`, `created_at`, `completed_at`) VALUES
+(1, 'scmovs_20261007_234204_24535a.sql', NULL, 'failed', 'mysqldump was not found. Install the MySQL command-line tools or set MYSQLDUMP_PATH in .env.', 1, '2026-10-07 23:42:04', '2026-10-07 23:42:04'),
+(2, 'scmovs_20261009_212836_9b3416.sql', NULL, 'failed', 'mysqldump was not found. Install the MySQL command-line tools or set MYSQLDUMP_PATH in .env.', 1, '2026-10-09 21:28:36', '2026-10-09 21:28:36'),
+(3, 'scmovs_20261015_215714_40ca02.sql', NULL, 'failed', 'mysqldump was not found. Install the MySQL command-line tools or set MYSQLDUMP_PATH in .env.', 1, '2026-10-15 21:57:14', '2026-10-15 21:57:15');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `ballots`
+--
+
+CREATE TABLE `ballots` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `election_id` int(10) UNSIGNED NOT NULL,
+  `student_id` int(10) UNSIGNED NOT NULL,
+  `submitted_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `status` enum('submitted') NOT NULL DEFAULT 'submitted'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `ballots`
+--
+
+INSERT INTO `ballots` (`id`, `election_id`, `student_id`, `submitted_at`, `status`) VALUES
+(5, 3, 14, '2026-10-14 21:32:59', 'submitted'),
+(6, 3, 9, '2026-10-14 21:33:58', 'submitted'),
+(7, 4, 9, '2026-10-16 13:16:27', 'submitted'),
+(8, 4, 15, '2026-10-16 13:24:23', 'submitted'),
+(9, 7, 9, '2026-10-16 15:54:38', 'submitted'),
+(10, 8, 17, '2026-10-16 16:00:47', 'submitted');
+
+--
+-- Triggers `ballots`
+--
+DELIMITER $$
+
+
+--- TRIGGER 3 ---
+CREATE TRIGGER `trg_ballots_bd` BEFORE DELETE ON `ballots` FOR EACH ROW BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Submitted ballots cannot be deleted.';
+END
+$$
+DELIMITER ;
+DELIMITER $$
+
+
+--- TRIGGER 4 ---
+CREATE TRIGGER `trg_ballots_bi` BEFORE INSERT ON `ballots` FOR EACH ROW BEGIN
+    DECLARE v_status VARCHAR(30);
+    DECLARE v_start DATETIME;
+    DECLARE v_end DATETIME;
+    DECLARE v_election_dept INT UNSIGNED;
+    DECLARE v_student_dept INT UNSIGNED;
+    DECLARE v_student_status VARCHAR(20);
+
+    SELECT status, start_at, end_at, department_id
+      INTO v_status, v_start, v_end, v_election_dept
+      FROM elections WHERE id = NEW.election_id;
+    SELECT department_id, status
+      INTO v_student_dept, v_student_status
+      FROM students WHERE id = NEW.student_id;
+
+    IF v_status <> 'open' OR NOW() < v_start OR NOW() > v_end THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Election is not open for voting.';
+    END IF;
+    IF v_student_dept <> v_election_dept THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Student does not belong to the election department.';
+    END IF;
+    IF v_student_status <> 'active' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only active students can vote.';
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+
+
+--- TRIGGER 5 ---
+CREATE TRIGGER `trg_ballots_bu` BEFORE UPDATE ON `ballots` FOR EACH ROW BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Submitted ballots cannot be modified.';
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `budgets`
+--
+
+CREATE TABLE `budgets` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `event_id` int(10) UNSIGNED DEFAULT NULL,
+  `project_id` int(10) UNSIGNED DEFAULT NULL,
+  `requested_amount` decimal(12,2) NOT NULL,
+  `approved_amount` decimal(12,2) DEFAULT NULL,
+  `breakdown` text NOT NULL,
+  `description` text NOT NULL,
+  `supporting_document_id` int(10) UNSIGNED DEFAULT NULL,
+  `status` enum('draft','submitted','under_review','approved','rejected') NOT NULL DEFAULT 'draft',
+  `requested_by` int(10) UNSIGNED NOT NULL,
+  `submitted_at` datetime DEFAULT NULL,
+  `reviewed_by` int(10) UNSIGNED DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `review_remarks` varchar(500) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ;
+
+--
+-- Dumping data for table `budgets`
+--
+
+INSERT INTO `budgets` (`id`, `event_id`, `project_id`, `requested_amount`, `approved_amount`, `breakdown`, `description`, `supporting_document_id`, `status`, `requested_by`, `submitted_at`, `reviewed_by`, `reviewed_at`, `review_remarks`, `created_at`, `updated_at`) VALUES
+(1, 2, NULL, 50000.00, 50000.00, 'Food: 5000, Material: 45000', 'thank you po sir!', NULL, 'approved', 15, '2026-10-16 13:39:20', 2, '2026-10-16 13:40:07', NULL, '2026-10-16 13:39:11', '2026-10-16 13:40:07');
+
+--
+-- Triggers `budgets`
+--
+DELIMITER $$
+
+
+--- TRIGGER 6 ---
+CREATE TRIGGER `trg_budgets_bi` BEFORE INSERT ON `budgets` FOR EACH ROW BEGIN
+    DECLARE v_status VARCHAR(20);
+    IF NEW.status NOT IN ('draft','submitted') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A new budget request must start as draft or submitted.';
+    END IF;
+    IF NEW.event_id IS NOT NULL THEN
+        SELECT status INTO v_status FROM events WHERE id = NEW.event_id;
+        IF v_status IS NULL OR v_status NOT IN ('approved','completed') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A budget requires an approved event.';
+        END IF;
+    ELSE
+        SELECT status INTO v_status FROM projects WHERE id = NEW.project_id;
+        IF v_status IS NULL OR v_status NOT IN ('approved','in_progress','completed') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A budget requires an approved project.';
+        END IF;
+    END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `candidates`
+--
+
+CREATE TABLE `candidates` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `election_id` int(10) UNSIGNED NOT NULL,
+  `student_id` int(10) UNSIGNED NOT NULL,
+  `position_id` int(10) UNSIGNED NOT NULL,
+  `platform` text DEFAULT NULL,
+  `photo_path` varchar(255) DEFAULT NULL,
+  `status` enum('pending','approved','rejected','disqualified') NOT NULL DEFAULT 'pending',
+  `remarks` varchar(500) DEFAULT NULL,
+  `reviewed_by` int(10) UNSIGNED DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `created_by` int(10) UNSIGNED DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `candidates`
+--
+
+INSERT INTO `candidates` (`id`, `election_id`, `student_id`, `position_id`, `platform`, `photo_path`, `status`, `remarks`, `reviewed_by`, `reviewed_at`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 1, 3, 1, 'Stronger student services and open forums.', NULL, 'approved', NULL, 2, '2026-09-30 00:07:21', 2, '2026-09-30 00:07:21', '2026-09-30 00:07:21'),
+(2, 1, 4, 1, 'Better campus events and transparent spending.', NULL, 'approved', NULL, 2, '2026-09-30 00:07:21', 2, '2026-09-30 00:07:21', '2026-09-30 00:07:21'),
+(3, 1, 2, 2, 'Support for every department and organization.', NULL, 'approved', NULL, 2, '2026-09-30 00:07:21', 2, '2026-09-30 00:07:21', '2026-09-30 00:07:21'),
+(4,
+
+--- TRIGGER 7 ---
+CREATE TRIGGER `trg_candidates_bi` BEFORE INSERT ON `candidates` FOR EACH ROW BEGIN
+    DECLARE v_student_dept INT UNSIGNED;
+    DECLARE v_election_dept INT UNSIGNED;
+    SELECT department_id INTO v_student_dept FROM students WHERE id = NEW.student_id;
+    SELECT department_id INTO v_election_dept FROM elections WHERE id = NEW.election_id;
+    IF v_student_dept <> v_election_dept THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Candidate must belong to the election department.';
+    END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `concerns`
+--
+
+CREATE TABLE `concerns` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `student_id` int(10) UNSIGNED NOT NULL,
+  `category` enum('concern','feedback') NOT NULL,
+  `subject` varchar(200) NOT NULL,
+  `message` text NOT NULL,
+  `status` enum('submitted','under_review','in_progress','resolved','closed') NOT NULL DEFAULT 'submitted',
+  `is_private` tinyint(1) NOT NULL DEFAULT 1,
+  `response` text DEFAULT NULL,
+  `responded_by` int(10) UNSIGNED DEFAULT NULL,
+  `responded_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `councils`
+--
+
+CREATE TABLE `councils` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `department_id` int(10) UNSIGNED NOT NULL,
+  `school_year_id` int(10) UNSIGNED NOT NULL,
+  `election_id` int(10) UNSIGNED DEFAULT NULL,
+  `term_start` date NOT NULL,
+  `term_end` date NOT NULL,
+  `status` enum('active','completed','archived') NOT NULL DEFAULT 'active',
+  `created_by` int(10) UNSIGNED NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ;
+
+--
+-- Dumping data for table `councils`
+--
+
+INSERT INTO `councils` (`id`, `name`, `department_id`, `school_year_id`, `election_id`, `term_start`, `term_end`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 'College Student Council 2026-2027', 3, 1, NULL, '2026-06-01', '2027-03-31', 'active', 2, '2026-09-30 00:07:21', '2026-09-30 00:07:21'),
+(2, 'elem', 1, 1, 8, '2026-10-16', '2026-11-16', 'active', 1, '2026-10-16 16:01:53', '2026-10-16 16:01:53');
+
+-- ---
+
+--- TRIGGER 8 ---
+CREATE TRIGGER `trg_expenses_bi` BEFORE INSERT ON `expenses` FOR EACH ROW BEGIN
+    DECLARE v_status VARCHAR(20);
+    IF NEW.status NOT IN ('draft','submitted') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'A new expense must start as draft or submitted.';
+    END IF;
+    IF NEW.event_id IS NOT NULL THEN
+        SELECT status INTO v_status FROM events WHERE id = NEW.event_id;
+        IF v_status IS NULL OR v_status NOT IN ('approved','completed') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'An expense requires an approved event.';
+        END IF;
+    ELSE
+        SELECT status INTO v_status FROM projects WHERE id = NEW.project_id;
+        IF v_status IS NULL OR v_status NOT IN ('approved','in_progress','completed') THEN
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'An expense requires an approved project.';
+        END IF;
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+
+
+--- TRIGGER 9 ---
+CREATE TRIGGER `trg_expenses_bu` BEFORE UPDATE ON `expenses` FOR EACH ROW BEGIN
+    DECLARE v_budget DECIMAL(12,2) DEFAULT 0;
+    DECLARE v_spent DECIMAL(12,2) DEFAULT 0;
+
+    IF NEW.status = 'approved' AND OLD.status <> 'approved' THEN
+        IF NEW.event_id IS NOT NULL THEN
+            SELECT COALESCE(SUM(approved_amount), 0) INTO v_budget
+              FROM budgets WHERE event_id = NEW.event_id AND status = 'approved';
+            SELECT COALESCE(SUM(amount), 0) INTO v_spent
+              FROM expenses WHERE event_id = NEW.event_id AND status = 'approved' AND id <> NEW.id;
+        ELSE
+            SELECT COALESCE(SUM(approved_amount), 0) INTO v_budget
+              FROM budgets WHERE project_id = NEW.project_id AND status = 'approved';
+            SELECT COALESCE(SUM(amount), 0) INTO v_spent
+              FROM expenses WHERE project_id = NEW.project_id AND status = 'approved' AND id <> NEW.id;
+        END IF;
+        IF NEW.amount > (v_budget - v_spent) THEN
+            SIGNAL SQLSTATE '45000'
+                SET MESSAGE_TEXT = 'Approved expenses cannot exceed the available approved budget.';
+        END IF;
+    END IF;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `meetings`
+--
+
+CREATE TABLE `meetings` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `council_id` int(10) UNSIGNED NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `meeting_at` datetime NOT NULL,
+  `location` varchar(200) NOT NULL,
+  `agenda` text DEFAULT NULL,
+  `status` enum('scheduled','completed','cancelled') NOT NULL DEFAULT 'scheduled',
+  `created_by` int(10) UNSIGNED NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `meetings`
+--
+
+INSERT INTO `meetings` (`id`, `council_id`, `title`, `meeting_at`, `location`, `agenda`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 1, 'Intramurals 2026', '2026-10-31 12:16:00', 'MIS Office', NULL, 'cancelled', 1, '2026-10-11 12:16:13', '2026-10-12 19:39:28');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `meeting_attendance`
+--
+
+CREATE TABLE `meeting_attendance` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `meeting_id` int(10) UNSIGNED NOT NULL,
+  `officer_id` int(10) UNSIGNED NOT NULL,
+  `attendance` enum('present','absent','excused') 
+
+--- TRIGGER 10 ---
+CREATE TRIGGER `trg_votes_bd` BEFORE DELETE ON `votes` FOR EACH ROW BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Submitted votes cannot be deleted.';
+END
+$$
+DELIMITER ;
+DELIMITER $$
+
+
+--- TRIGGER 11 ---
+CREATE TRIGGER `trg_votes_bi` BEFORE INSERT ON `votes` FOR EACH ROW BEGIN
+    DECLARE v_status VARCHAR(20);
+    SELECT status INTO v_status FROM candidates WHERE id = NEW.candidate_id;
+    IF v_status <> 'approved' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only approved candidates can receive votes.';
+    END IF;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+
+
+--- TRIGGER 12 ---
+CREATE TRIGGER `trg_votes_bu` BEFORE UPDATE ON `votes` FOR EACH ROW BEGIN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Submitted votes cannot be modified.';
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_election_participation`
+-- (See below for the actual view)
+--
+CREATE TABLE `v_election_participation` (
+`election_id` int(10) unsigned
+,`eligible_voters` bigint(21)
+,`votes_cast` bigint(21)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Stand-in structure for view `v_election_results`
+-- (See below for the actual view)
+--
+CREATE TABLE `v_election_results` (
+`election_id` int(10) unsigned
+,`position_id` int(10) unsigned
+,`candidate_id` int(10) unsigned
+,`vote_count` bigint(21)
+);
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `announcements`
+--
+ALTER TABLE `announcements`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `author_id` (`author_id`),
+  ADD KEY `department_id` (`department_id`),
+  ADD KEY `idx_announcements_status` (`status`,`publish_at`);
+
+--
+-- Indexes for table `archives`
+--
+ALTER TABLE `archives`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `archived_by` (`archived_by`),
+  ADD KEY `restored_by` (`restored_by`),
+  ADD KEY `idx_archives_entity` (`entity_type`,`entity_id`);
+
+--
+-- Indexes for table `audit_logs`
+--
+ALTER TABLE `audit_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_audit_user` (`user_id`),
+  ADD KEY `idx_audit_module_action` (`module`,`action`),
+  ADD KEY `idx_audit_created` (`created_at`);
+
+--
+-- Indexes for table `backups`
+--
+ALTER TABLE `backups`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `filename` (`filename`),
+  ADD KEY `created_by` (`created_by`),
+  ADD KEY `idx_backups_created` (`created_at`);
+
+--
+-- Indexes for table `ballots`
+--
+ALTER TABLE `ballots`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_ballot_student_election` (`student_id`,`election_id`),
+  ADD UNIQUE KEY `uq_ballot_scope` (`id`,`election_id`),
+  ADD KEY `idx_ballots_election` (`election_id`);
+
+--
+-- Indexes for table `budgets`
+--
+ALTER TABLE `budgets`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `supporting_document_id` (`supporting_document_id`),
+  ADD KEY `requested_by` (`requested_by`),
+  ADD KEY `reviewed_by` (`reviewed_by`),
+  ADD KEY `idx_budgets_event` (`event_id`),
+  ADD KEY `idx_budgets_project` (`project_id`),
+  ADD KEY `idx_budgets_status` (`status`);
+
+--
+-- Indexes for table `candidates`
+--
+ALTER TABLE `candidates`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_candi

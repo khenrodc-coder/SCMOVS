@@ -1,9 +1,11 @@
-from flask import Blueprint, flash, g, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, g, jsonify, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.audit.services import log_action
 from app.auth.decorators import login_required
+from app.auth import recovery
 from app.auth.services import attempt_login, get_setting_int, is_safe_next, validate_new_password
+from app.validators import normalize_email, validate_email_format
 from app.db import fetch_one, get_db
 
 auth_bp = Blueprint("auth", __name__)
@@ -36,7 +38,7 @@ def login():
                     return redirect(next_url)
                 return redirect(url_for("dashboard.home"))
 
-    return render_template("auth/login.html", next_url=next_url)
+    return render_template("auth/login.html", next_url=next_url, recovery_enabled=recovery.recovery_available())
 
 
 @auth_bp.route("/logout", methods=["POST"])
@@ -102,3 +104,56 @@ def change_password():
             return redirect(url_for("dashboard.home"))
 
     return render_template("auth/change_password.html", min_length=min_length)
+
+
+# ------------------------------------------------------------ forgot / reset password
+
+GENERIC_RESET_MESSAGE = ("If an eligible account exists, password reset instructions will be sent "
+                         "to its registered email address.")
+
+
+@auth_bp.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    """Login-page modal. GET returns the modal HTML; POST answers JSON (CSRF-protected via X-CSRFToken)."""
+    if request.method == "GET":
+        if request.headers.get("X-Requested-With") != "fetch":
+            return redirect(url_for("auth.login"))
+        return render_template("auth/_forgot_modal.html")
+    if g.user is not None:
+        return jsonify(ok=False, message="You are already signed in."), 400
+    email = normalize_email(request.form.get("email", ""))
+    problem = validate_email_format(email)
+    if problem:
+        return jsonify(ok=False, message=problem, errors={"email": problem}), 422
+
+    status = recovery.request_reset(email, request.remote_addr or "unknown")
+    if status == "unavailable":
+        return jsonify(ok=False, message="Password recovery by email is not available right now. "
+                                         "Please contact the school administration."), 503
+    if status == "rate_limited":
+        return jsonify(ok=False, message="Too many reset requests. Please wait a few minutes and try again."), 429
+    return jsonify(ok=True, message=GENERIC_RESET_MESSAGE)
+
+
+@auth_bp.route("/reset-password/<token>", methods=["GET", "POST"])
+def reset_password(token):
+    row = recovery.get_valid_token(token)
+    if row is None:
+        # one message for invalid, expired and already-used links: nothing about the token is revealed
+        return render_template("auth/reset_password.html", valid=False, min_length=get_setting_int("password_min_length", 8)), 400
+
+    error = None
+    if request.method == "POST":
+        new = request.form.get("new_password", "")
+        confirm = request.form.get("confirm_password", "")
+        error = validate_new_password(new) if new else "Please enter a new password."
+        if error is None and new != confirm:
+            error = "The two passwords do not match."
+        if error is None:
+            if recovery.complete_reset(token, new):
+                return render_template("auth/reset_password.html", valid=True, done=True,
+                                       min_length=get_setting_int("password_min_length", 8))
+            return render_template("auth/reset_password.html", valid=False,
+                                   min_length=get_setting_int("password_min_length", 8)), 400
+    return render_template("auth/reset_password.html", valid=True, done=False, error=error,
+                           min_length=get_setting_int("password_min_length", 8))

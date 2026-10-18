@@ -1,0 +1,8 @@
+{% from "components/modal.html" import modal, field %}
+{% set create = mode == 'create' %}
+{% call modal('Add Department' if create else 'Edit Department', 'fa-building-columns',
+              url_for('departments.create') if create else url_for('departments.edit', department_id=department.id),
+              'Create Department' if create else 'Save Changes', subtitle='' if create else department.name) %}
+    {{ field('name', 'Department name', form.name, required=true, maxlength=60) }}
+    {{ field('code', 'Code', form.code, required=true, maxlength=10, hint='2-10 capital letters or numbers, e.g. COL.', extra='style="text-transform:uppercase"') }}
+{% endcall %}

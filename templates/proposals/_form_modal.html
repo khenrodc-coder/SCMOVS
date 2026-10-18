@@ -1,0 +1,38 @@
+{% from "components/modal.html" import modal, field, textarea_field, icon_select %}
+{% set create = mode == 'create' %}
+{% set bp = cfg.blueprint %}
+{% set council_options = [] %}{% for c in councils %}{% set _ = council_options.append((c.id|string, c.name, 'fa-people-group')) %}{% endfor %}
+{% call modal(('New ' if create else 'Edit ') ~ cfg.label ~ ' Proposal', 'fa-calendar-plus' if cfg.kind == 'event' else 'fa-diagram-project',
+              url_for(bp ~ '.create') if create else url_for(bp ~ '.edit', item_id=item.id),
+              'Save Draft' if create else 'Save Changes', wide=true,
+              subtitle='Saved as a draft. You submit it for review from its page.' if create else item.title) %}
+    {% if not create and item.status == 'rejected' %}
+        <p class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">This proposal was rejected{% if item.review_remarks %}: <em>{{ item.review_remarks }}</em>{% endif %}. Saving your changes makes it a draft again, so you can submit it for a new review.</p>
+    {% endif %}
+    {% if create %}
+        {% if councils|length > 1 %}
+            {{ icon_select('council_id', 'Council', council_options, form.get('council_id', ''), required=true) }}
+        {% else %}
+            <input type="hidden" name="council_id" value="{{ councils[0].id }}">
+            <p class="text-sm text-slate-600">Council: <strong>{{ councils[0].name }}</strong></p>
+        {% endif %}
+    {% else %}
+        <p class="text-sm text-slate-600">Council: <strong>{{ item.council_name }}</strong></p>
+    {% endif %}
+    {{ field('title', 'Title', form.get('title', ''), required=true, maxlength=200) }}
+    {{ textarea_field('description', 'Description', form.get('description', ''), required=true, maxlength=5000, rows=3) }}
+    {{ textarea_field('objectives', 'Objectives', form.get('objectives', ''), required=true, maxlength=5000, rows=3) }}
+    {% if cfg.kind == 'event' %}
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {{ field('event_start', 'Starts', form.get('event_start', ''), type='datetime-local', required=true) }}
+            {{ field('event_end', 'Ends', form.get('event_end', ''), type='datetime-local', required=true) }}
+        </div>
+        {{ field('location', 'Location', form.get('location', ''), required=true, maxlength=200) }}
+        {{ textarea_field('supporting_info', 'Supporting information', form.get('supporting_info', ''), maxlength=5000, rows=2) }}
+    {% else %}
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {{ field('start_date', 'Starts', form.get('start_date', ''), type='date', required=true) }}
+            {{ field('end_date', 'Ends', form.get('end_date', ''), type='date', required=true) }}
+        </div>
+    {% endif %}
+{% endcall %}

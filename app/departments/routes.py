@@ -3,6 +3,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 
 from app.auth.decorators import access_required
 from app.departments import services
+from app.modal_utils import json_errors, json_ok, wants_json
 
 departments_bp = Blueprint("departments", __name__, url_prefix="/departments")
 
@@ -31,38 +32,39 @@ def list_page():
 @departments_bp.route("/new", methods=["GET", "POST"])
 @manage
 def create():
-    form, errors = {"name": "", "code": ""}, []
-    if request.method == "POST":
-        form = _read_form()
-        errors = services.validate_department(form)
-        if not errors:
-            try:
-                services.create_department(form, g.user["id"])
-            except mysql.connector.IntegrityError:
-                errors.append("That name or code is already used.")
-            else:
-                flash(f"Department '{form['name']}' was created.", "success")
-                return redirect(url_for("departments.list_page"))
-    return render_template("departments/form.html", mode="create", form=form, errors=errors, department=None)
+    if request.method == "GET":
+        if not wants_json():
+            return redirect(url_for("departments.list_page"))
+        return render_template("departments/_form_modal.html", mode="create", form={"name": "", "code": ""}, department=None)
+    form = _read_form()
+    errors = services.validate_department(form)
+    if errors:
+        return json_errors(errors)
+    try:
+        services.create_department(form, g.user["id"])
+    except mysql.connector.IntegrityError:
+        return json_errors({"name": "That name or code is already used."})
+    return json_ok(f"Department '{form['name']}' was created.")
 
 
 @departments_bp.route("/<int:department_id>/edit", methods=["GET", "POST"])
 @manage
 def edit(department_id):
     department = _get_or_404(department_id)
-    form, errors = {"name": department["name"], "code": department["code"]}, []
-    if request.method == "POST":
-        form = _read_form()
-        errors = services.validate_department(form, department_id)
-        if not errors:
-            try:
-                services.update_department(department, form, g.user["id"])
-            except mysql.connector.IntegrityError:
-                errors.append("That name or code is already used.")
-            else:
-                flash(f"Department '{form['name']}' was updated.", "success")
-                return redirect(url_for("departments.list_page"))
-    return render_template("departments/form.html", mode="edit", form=form, errors=errors, department=department)
+    if request.method == "GET":
+        if not wants_json():
+            return redirect(url_for("departments.list_page"))
+        return render_template("departments/_form_modal.html", mode="edit", department=department,
+                               form={"name": department["name"], "code": department["code"]})
+    form = _read_form()
+    errors = services.validate_department(form, department_id)
+    if errors:
+        return json_errors(errors)
+    try:
+        services.update_department(department, form, g.user["id"])
+    except mysql.connector.IntegrityError:
+        return json_errors({"name": "That name or code is already used."})
+    return json_ok(f"Department '{form['name']}' was updated.")
 
 
 @departments_bp.route("/<int:department_id>/toggle-active", methods=["POST"])

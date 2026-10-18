@@ -1,0 +1,52 @@
+{% from "components/modal.html" import modal, field, icon_select %}
+{% from "components/avatar.html" import avatar with context %}
+{% set create = mode == 'create' %}
+{% set election_options = [] %}
+{% for e in elections %}{% set _ = election_options.append((e.id|string, e.name, 'fa-check-to-slot')) %}{% endfor %}
+{% set cur_positions = pos_map.get(selected_election, []) %}
+{% set position_options = [] %}
+{% for p in cur_positions %}{% set _ = position_options.append((p.id, p.name, 'fa-briefcase')) %}{% endfor %}
+{% call modal('Add Candidate' if create else 'Edit Candidate', 'fa-user-tie',
+              url_for('candidates.register') if create else url_for('candidates.edit', candidate_id=candidate.id),
+              'Register Candidate' if create else 'Save Changes', wide=true,
+              subtitle='New candidates start as pending until reviewed.' if create else candidate.student_number ~ ' · ' ~ candidate.election_name) %}
+    <div data-candidate-form data-pos-map='{{ pos_map|tojson|forceescape }}' data-lookup-url="{{ url_for('candidates.lookup') }}" hidden></div>
+    <div class="flex items-start gap-4">
+        <div class="shrink-0 text-center">
+            <div id="cand-photo-preview" class="h-24 w-24 overflow-hidden rounded-full border-2 border-slate-300 bg-slate-100">
+                {% if not create and candidate.photo_path %}<img src="{{ photo_url(candidate.photo_path) }}" alt="" class="h-full w-full object-cover">
+                {% else %}<span class="grid h-full w-full place-items-center text-slate-400"><i class="fa-solid fa-user text-3xl"></i></span>{% endif %}
+            </div>
+            <label for="f_photo" class="mt-2 inline-flex cursor-pointer items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-semibold hover:bg-slate-50 focus-within:ring-4 focus-within:ring-blue-200">
+                <i class="fa-solid fa-camera"></i>{{ 'Change photo' if (not create and candidate.photo_path) else 'Upload photo' }}</label>
+            <input id="f_photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" data-photo-preview="cand-photo-preview">
+            <p data-error-for="photo" hidden role="alert" class="mt-1 max-w-[9rem] text-xs font-medium text-red-700"></p>
+        </div>
+        <div class="min-w-0 flex-1 space-y-3">
+            {{ icon_select('election_id', 'Election', election_options, selected_election, required=true, disabled=not create, placeholder='Select an election') }}
+            {% if create %}
+                {{ field('student_number', 'Student ID', form.student_number, required=true, maxlength=30, hint='The candidate must be an active student of this election\'s department.', extra='autocomplete="off" data-candidate-student') }}
+            {% else %}
+                <div><span class="mb-1 block text-sm font-semibold text-slate-700">Student ID</span><p class="rounded-lg bg-slate-100 px-3 py-2 text-sm">{{ candidate.student_number }}</p></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3" aria-live="polite">
+        {% for key, label in [('first_name', 'First name'), ('middle_name', 'Middle name'), ('last_name', 'Last name')] %}
+        <div><span class="mb-1 block text-sm font-semibold text-slate-700">{{ label }}</span>
+            <p data-cand-{{ key }} class="min-h-[40px] rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">{{ (candidate[key] if candidate else '') or '' }}</p></div>
+        {% endfor %}
+    </div>
+    <p data-cand-status class="text-xs text-slate-500">{% if create %}Names and department are filled in from the student record once a valid Student ID is entered.{% else %}Name and department come from the student record.{% endif %}</p>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div><span class="mb-1 block text-sm font-semibold text-slate-700">Department</span>
+            <p data-cand-department class="min-h-[40px] rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">{{ candidate.department if candidate else '' }}</p></div>
+        {{ icon_select('position_id', 'Position', position_options, form.position_id, required=true, placeholder='Select a position') }}
+    </div>
+    <div>
+        <label for="f_platform" class="mb-1 block text-sm font-semibold text-slate-700">Platform <span class="font-normal text-slate-400">(optional)</span></label>
+        <textarea id="f_platform" name="platform" rows="3" maxlength="2000" class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200">{{ form.platform }}</textarea>
+        <p data-error-for="platform" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+    </div>
+    {% if not create and candidate.status == 'approved' %}<p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Editing an approved candidate removes the approval; they will need a new review. Use "Change photo" on the candidate page to update only the photo without affecting approval.</p>{% endif %}
+{% endcall %}

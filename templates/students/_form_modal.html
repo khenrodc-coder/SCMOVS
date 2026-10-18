@@ -1,0 +1,47 @@
+{% from "components/modal.html" import modal, field, icon_select %}
+{% set create = mode == 'create' %}
+{% set locked = not create and student.election_records > 0 %}
+{% set dept_options = [] %}
+{% for d in departments %}{% set _ = dept_options.append((d.id|string, d.name, 'fa-building-columns')) %}{% endfor %}
+{% set year_options = [] %}
+{% for y in school_years %}{% set _ = year_options.append((y.id|string, y.name, 'fa-calendar-days')) %}{% endfor %}
+{% call modal('Add Student' if create else 'Edit Student', 'fa-user-graduate',
+              url_for('students.create') if create else url_for('students.edit', student_id=student.id),
+              'Create Student' if create else 'Save Changes', wide=true,
+              subtitle='A login account is created with the student.' if create else student.student_number) %}
+    <div data-year-map='{{ year_level_map|tojson|forceescape }}' hidden></div>
+    {% if create %}
+        {{ field('student_number', 'Student ID', form.student_number, required=true, maxlength=8,
+                 hint='Exactly 8 digits, e.g. 80382024. Used to log in and cannot be changed later.', extra='data-rule="student-id" autocomplete="off"') }}
+    {% else %}
+        <div><span class="mb-1 block text-sm font-semibold text-slate-700">Student ID</span>
+            <p class="rounded-lg bg-slate-100 px-3 py-2 text-sm">{{ student.student_number }}</p></div>
+    {% endif %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {{ field('first_name', 'First name', form.first_name, required=true, maxlength=60, extra='data-rule="name"') }}
+        {{ field('middle_name', 'Middle name', form.middle_name, maxlength=60, extra='data-rule="name"') }}
+        {{ field('last_name', 'Last name', form.last_name, required=true, maxlength=60, extra='data-rule="name"') }}
+    </div>
+    {% if create or student.student_number|length == 8 and student.student_number.isdigit() %}
+        {{ field('email', 'Institutional email', form.email, type='email', required=true, maxlength=120,
+                 hint='Must be the 8-digit Student ID followed by @holycross.edu.ph', extra='data-rule="student-email" data-match="student_number"' if create else 'data-rule="email"') }}
+    {% else %}
+        {{ field('email', 'Email address', form.email, type='email', required=true, maxlength=120,
+                 hint='This is an older Student ID that is not 8 digits, so any valid email is accepted.', extra='data-rule="email"') }}
+    {% endif %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {{ icon_select('department_id', 'Department', dept_options, form.department_id, required=true, disabled=locked, placeholder='Select a department') }}
+        {{ icon_select('school_year_id', 'School year', year_options, form.school_year_id, required=true, disabled=locked, placeholder='Select a school year') }}
+    </div>
+    {% if locked %}<p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">This student has election records (voted or ran as a candidate), so the department and school year are locked.</p>{% endif %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+            <label for="f_year_level" class="mb-1 block text-sm font-semibold text-slate-700">Year level <span class="text-red-600" aria-hidden="true">*</span></label>
+            <input id="f_year_level" name="year_level" value="{{ form.year_level }}" required maxlength="20" list="year-levels" autocomplete="off"
+                   class="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200">
+            <datalist id="year-levels"></datalist>
+            <p data-error-for="year_level" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+        </div>
+        {{ field('section', 'Section', form.section, required=true, maxlength=30) }}
+    </div>
+{% endcall %}

@@ -117,7 +117,7 @@ def ballot_positions(election_id):
         "JOIN positions p ON p.id = ep.position_id WHERE ep.election_id = %s AND ep.is_active = 1 "
         "ORDER BY ep.display_order, p.display_order, p.name", (election_id,))
     candidates = fetch_all(
-        "SELECT c.id, c.position_id, c.platform, s.first_name, s.middle_name, s.last_name, s.year_level, s.section "
+        "SELECT c.id, c.position_id, c.platform, c.photo_path, s.first_name, s.middle_name, s.last_name, s.year_level, s.section "
         "FROM candidates c JOIN students s ON s.id = c.student_id "
         "WHERE c.election_id = %s AND c.status = 'approved' ORDER BY s.last_name, s.first_name", (election_id,))
     by_position = {}

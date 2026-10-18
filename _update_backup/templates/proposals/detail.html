@@ -1,0 +1,103 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}{{ item.title }}{% endblock %}
+
+{% set bp = cfg.blueprint %}
+{# label, confirmation question, colour #}
+{% set labels = {
+    'submit': ['Submit for review', 'Submit this proposal for review? You cannot edit it while it is being reviewed.', 'bg-blue-900 hover:bg-blue-800'],
+    'withdraw': ['Withdraw (back to draft)', 'Withdraw this proposal and move it back to draft?', 'bg-slate-600 hover:bg-slate-500'],
+    'start': ['Start the project', 'Mark this approved project as In Progress?', 'bg-blue-900 hover:bg-blue-800'],
+    'complete': ['Mark as completed', 'Mark this as completed?', 'bg-green-700 hover:bg-green-600'],
+    'archive': ['Archive', 'Archive this record? It is kept as history and can be restored.', 'bg-red-700 hover:bg-red-600'],
+    'restore': ['Restore from archive', 'Restore this record from the archive?', 'bg-green-700 hover:bg-green-600']
+} %}
+{% set review_actions = ['start_review', 'approve', 'reject'] %}
+{% set simple = actions|reject('in', review_actions)|list %}
+
+{% block content %}
+<a href="{{ url_for(bp ~ '.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to {{ cfg.plural|lower }}</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">{{ item.title }}</h1>
+        <p class="mt-1 text-sm text-slate-600">{{ cfg.label }} proposal of <strong>{{ item.council_name }}</strong> by {{ item.submitted_by_name }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        {{ status_badge(item.status) }}
+        {% if item.is_archived %}{{ status_badge('archived') }}{% endif %}
+        {% if can_edit %}<a href="{{ url_for(bp ~ '.edit', item_id=item.id) }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+    </div>
+</div>
+
+{% if item.status == 'rejected' and item.review_remarks %}
+<div class="mt-4 bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3 text-sm">
+    <strong>Rejected</strong> by {{ item.reviewed_by_name or 'an admin' }}: {{ item.review_remarks }}
+</div>
+{% endif %}
+
+<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <dl class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200 text-sm">
+        {% if cfg.kind == 'event' %}
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Starts</dt><dd class="font-medium text-right">{{ item.event_start|dt }}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Ends</dt><dd class="font-medium text-right">{{ item.event_end|dt }}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Location</dt><dd class="font-medium text-right">{{ item.location }}</dd></div>
+        {% else %}
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Starts</dt><dd class="font-medium">{{ item.start_date }}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Ends</dt><dd class="font-medium">{{ item.end_date }}</dd></div>
+        {% endif %}
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Submitted</dt><dd class="font-medium">{{ item.submitted_at|dt if item.submitted_at else 'Not yet' }}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Reviewed</dt>
+            <dd class="font-medium text-right">{% if item.reviewed_at %}{{ item.reviewed_at|dt }} by {{ item.reviewed_by_name }}{% elif item.reviewed_by_name %}In review by {{ item.reviewed_by_name }}{% else %}-{% endif %}</dd></div>
+    </dl>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-sm space-y-3">
+        <div><h2 class="font-semibold">Description</h2><p class="whitespace-pre-line text-slate-700">{{ item.description }}</p></div>
+        <div><h2 class="font-semibold">Objectives</h2><p class="whitespace-pre-line text-slate-700">{{ item.objectives }}</p></div>
+        {% if cfg.kind == 'event' and item.supporting_info %}<div><h2 class="font-semibold">Supporting information</h2><p class="whitespace-pre-line text-slate-700">{{ item.supporting_info }}</p></div>{% endif %}
+        {% if cfg.kind == 'project' and item.completion_report %}<div><h2 class="font-semibold">Completion report</h2><p class="whitespace-pre-line text-slate-700">{{ item.completion_report }}</p></div>{% endif %}
+    </div>
+</div>
+
+{% if actions %}
+<div class="mt-4 bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+    <h2 class="font-semibold">Actions</h2>
+
+    {% if actions|select('in', review_actions)|list %}
+    <form method="post" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div>
+            <label for="remarks" class="block text-sm font-medium mb-1">Remarks <span class="text-slate-400">(required to reject)</span></label>
+            <textarea id="remarks" name="remarks" rows="3" maxlength="500"
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"></textarea>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% if 'start_review' in actions %}<button type="submit" formaction="{{ url_for(bp ~ '.act', item_id=item.id, action='start_review') }}" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500">Start review</button>{% endif %}
+            {% if 'approve' in actions %}<button type="submit" formaction="{{ url_for(bp ~ '.act', item_id=item.id, action='approve') }}" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600">Approve</button>{% endif %}
+            {% if 'reject' in actions %}<button type="submit" formaction="{{ url_for(bp ~ '.act', item_id=item.id, action='reject') }}" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600">Reject</button>{% endif %}
+        </div>
+    </form>
+    {% endif %}
+
+    {% if cfg.kind == 'project' and 'complete' in actions %}
+    <form method="post" action="{{ url_for(bp ~ '.act', item_id=item.id, action='complete') }}" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div>
+            <label for="completion_report" class="block text-sm font-medium mb-1">Completion report</label>
+            <textarea id="completion_report" name="completion_report" rows="4" required minlength="20" maxlength="5000"
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"></textarea>
+        </div>
+        <button type="submit" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600">Submit report and complete</button>
+    </form>
+    {% endif %}
+
+    <div class="flex flex-wrap gap-2">
+        {% for action in simple if not (cfg.kind == 'project' and action == 'complete') %}
+        <form method="post" action="{{ url_for(bp ~ '.act', item_id=item.id, action=action) }}" data-confirm="{{ labels[action][1] }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="text-white text-sm font-semibold px-4 py-2 rounded-lg {{ labels[action][2] }}">{{ labels[action][0] }}</button>
+        </form>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "layouts/app_layout.html" %}
+
+{% from "components/badges.html" import status_badge %}
+
+{% block title %}Positions{% endblock %}
+
+{% macro move_button(position, direction, icon, disabled) %}
+<form method="post" action="{{ url_for('positions.move', position_id=position.id, direction=direction) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" {{ 'disabled' if disabled }} aria-label="Move {{ direction }}"
+            class="w-7 h-7 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
+        <i class="fa-solid {{ icon }} text-xs"></i>
+    </button>
+</form>
+{% endmacro %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Positions</h1>
+        <p class="text-sm text-slate-600">The order here is the default order on ballots.</p>
+    </div>
+
+    <a href="{{ url_for('positions.create') }}"
+       class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-4 py-2 rounded-lg">
+        <i class="fa-solid fa-plus mr-1"></i>New Position
+    </a>
+</div>
+
+<div class="mt-4 rounded-xl border border-slate-200 bg-white shadow-sm overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
+            <tr>
+                <th class="px-4 py-2">Order</th>
+                <th class="px-4 py-2">Position</th>
+                <th class="px-4 py-2">Description</th>
+                <th class="px-4 py-2">Seats</th>
+                <th class="px-4 py-2">Used in elections</th>
+                <th class="px-4 py-2">Status</th>
+                <th class="px-4 py-2">Actions</th>
+            </tr>
+        </thead>
+
+        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+        {% for p in positions %}
+            <tr>
+                <td class="px-4 py-2">
+                    <div class="flex items-center gap-1">
+                        {{ move_button(p, 'up', 'fa-arrow-up', loop.first) }}
+                        {{ move_button(p, 'down', 'fa-arrow-down', loop.last) }}
+                        <span class="ml-2 text-slate-500">{{ loop.index }}</span>
+                    </div>
+                </td>
+
+                <td class="px-4 py-2 font-medium">{{ p.name }}</td>
+
+                <td class="px-4 py-2 text-slate-600">{{ p.description or '-' }}</td>
+
+                <td class="px-4 py-2">{{ p.seats }}</td>
+
+                <td class="px-4 py-2">{{ p.election_count }}</td>
+
+                <td class="px-4 py-2">
+                    {{ status_badge('active' if p.is_active else 'inactive') }}
+                </td>
+
+                <td class="px-4 py-2">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <a href="{{ url_for('positions.edit', position_id=p.id) }}"
+                           class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 text-blue-700"
+                           title="Edit"
+                           aria-label="Edit">
+                            <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                            <span class="sr-only">Edit</span>
+                        </a>
+
+                        <form method="post"
+                              action="{{ url_for('positions.toggle_active', position_id=p.id) }}"
+                              data-confirm="{{ 'Deactivate' if p.is_active else 'Activate' }} the position {{ p.name }}?">
+
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                            <button type="submit"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-transparent transition hover:border-slate-200 hover:bg-slate-100 focus:outline-none focus:ring-4 focus:ring-blue-200 {{ 'text-red-700' if p.is_active else 'text-green-700' }}"
+                                    title="{{ 'Deactivate' if p.is_active else 'Activate' }}"
+                                    aria-label="{{ 'Deactivate' if p.is_active else 'Activate' }}">
+                                <i class="fa-solid {{ {'Edit':'fa-pen-to-square','Manage':'fa-sliders','View':'fa-eye','Download':'fa-download','Restore':'fa-rotate-left','Remove':'fa-trash-can','Approve':'fa-circle-check','Reject':'fa-circle-xmark','Activate':'fa-circle-check','Set active':'fa-circle-check','Deactivate':'fa-ban','Close':'fa-lock','Reset password':'fa-key','Graduate':'fa-graduation-cap','Archive':'fa-box-archive','Reactivate':'fa-circle-check','Set inactive':'fa-ban','Mark inactive':'fa-ban'}.get(('Deactivate' if p.is_active else 'Activate'), 'fa-circle-dot') }}"
+                                     aria-hidden="true"></i>
+                                <span class="sr-only">{{ 'Deactivate' if p.is_active else 'Activate' }}</span>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+
+        {% else %}
+            <tr>
+                <td colspan="7" class="px-4 py-10 text-center text-slate-500">
+                    No positions yet.
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<p class="mt-3 text-xs text-slate-500">
+    A deactivated position cannot be added to new elections. Elections and councils that already use it keep it.
+</p>
+
+{% endblock %}

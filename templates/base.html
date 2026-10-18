@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en"{% if current_user and current_user.role == 'super_admin' and current_user.theme_preference == 'dark' %} class="dark"{% endif %}>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>
         {% block title %}{{ system_name }}{% endblock %} | {{ system_name }}
@@ -43,6 +44,19 @@
         h1, h2 { font-family: "Playfair Display", Georgia, "Times New Roman", serif; }
         .font-num { font-variant-numeric: tabular-nums; letter-spacing: 0; }
         /* Edge adds its own reveal icon to password fields; we provide ours. */
+
+        /* ---- Global modal (static/js/modal.js) ---- */
+        html.modal-open { overflow: hidden; }
+        .scmovs-modal-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+            padding: 1rem; background: rgba(15, 23, 42, .55); backdrop-filter: blur(2px); }
+        .scmovs-modal-overlay[hidden] { display: none; }
+        .scmovs-modal-dialog { width: 100%; max-width: 32rem; max-height: calc(100vh - 2rem); overflow-y: auto; border-radius: .9rem;
+            background: #fff; color: #1e293b; box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); }
+        .scmovs-modal-dialog.wide, .scmovs-modal-dialog:has(.modal-wide) { max-width: 40rem; }
+        .field-invalid { border-color: #dc2626 !important; }
+        .field-invalid:focus { box-shadow: 0 0 0 4px rgba(220, 38, 38, .2) !important; }
+        @media (prefers-reduced-motion: no-preference) { .scmovs-modal-dialog { animation: modal-in .16s ease-out; } }
+        @keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
         input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
     </style>
 
@@ -50,6 +64,7 @@
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dark.css') }}">
 </head>
 
 <body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
@@ -95,6 +110,10 @@
 
     <!-- Main JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/icon_select.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/form_rules.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/select_icons.js') }}"></script>
 
     {% block scripts %}{% endblock %}
 

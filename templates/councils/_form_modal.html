@@ -1,0 +1,23 @@
+{% from "components/modal.html" import modal, field, icon_select %}
+{% set create = mode == 'create' %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id|string, d.name, 'fa-building-columns')) %}{% endfor %}
+{% set year_options = [] %}{% for y in school_years %}{% set _ = year_options.append((y.id|string, y.name, 'fa-calendar-days')) %}{% endfor %}
+{% set election_options = [('', 'No election (appointed council)', 'fa-ban')] %}
+{% for e in elections %}{% set _ = election_options.append((e.id|string, e.name ~ ' (' ~ e.department ~ ', ' ~ e.school_year ~ ')', 'fa-check-to-slot')) %}{% endfor %}
+{% call modal('New Council' if create else 'Edit Council', 'fa-people-group',
+              url_for('councils.create') if create else url_for('councils.edit', council_id=council.id),
+              'Create Council' if create else 'Save Changes', wide=true,
+              subtitle='You assign its officers next.' if create else council.name) %}
+    {{ field('name', 'Council name', form.get('name', ''), required=true, maxlength=150, placeholder='College Student Council 2026-2027') }}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {{ icon_select('department_id', 'Department', dept_options, form.get('department_id', ''), required=true, disabled=locked, placeholder='Select a department') }}
+        {{ icon_select('school_year_id', 'School year', year_options, form.get('school_year_id', ''), required=true, disabled=locked, placeholder='Select a school year') }}
+    </div>
+    {% if locked %}<p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Officers were already assigned, so the department and school year are locked.</p>{% endif %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {{ field('term_start', 'Term starts', form.get('term_start', ''), type='date', required=true) }}
+        {{ field('term_end', 'Term ends', form.get('term_end', ''), type='date', required=true) }}
+    </div>
+    {{ icon_select('election_id', 'Linked election', election_options, form.get('election_id', ''),
+                   hint='Optional. Only finished elections of the same department and school year can be linked.', placeholder='No election (appointed council)') }}
+{% endcall %}

@@ -1,0 +1,108 @@
+{#  Reusable modal pieces (see static/js/modal.js).
+
+    {% call modal('Add User', 'fa-user-plus', url_for(...), 'Create User') %} ...fields... {% endcall %}
+
+    The macro renders: header (icon, title, close X), a <form data-modal-form> with the CSRF token,
+    your fields (caller), an error box, and the footer (Cancel + primary button with spinner).
+#}
+{% macro modal(title, icon, action, submit_label, submit_icon='fa-floppy-disk', wide=false, loading='Saving…', subtitle='', danger=false) %}
+<form data-modal-form method="post" action="{{ action }}" class="{{ 'modal-wide' if wide }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
+        <div class="flex items-center gap-3">
+            <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full {{ 'bg-red-50 text-red-700' if danger else 'bg-blue-50 text-blue-900' }}"><i class="fa-solid {{ icon }}" aria-hidden="true"></i></span>
+            <div>
+                <h2 class="font-sans text-base font-bold text-blue-950" style="font-family:inherit">{{ title }}</h2>
+                {% if subtitle %}<p class="text-xs text-slate-500">{{ subtitle }}</p>{% endif %}
+            </div>
+        </div>
+        <button type="button" data-modal-close aria-label="Close" title="Close"
+                class="grid h-8 w-8 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus:ring-4 focus:ring-blue-200">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+    </div>
+    <div class="space-y-4 px-5 py-4">
+        <p data-form-error hidden role="alert" class="whitespace-pre-line rounded-lg border border-red-300 border-l-4 border-l-red-500 bg-red-50 px-3 py-2 text-sm text-red-900"></p>
+        {{ caller() }}
+    </div>
+    <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 rounded-b-[.9rem]">
+        <button type="button" data-modal-close
+                class="inline-flex min-h-[40px] items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200">Cancel</button>
+        <button type="submit" data-loading="{{ loading }}"
+                class="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-60 {{ 'bg-red-700 hover:bg-red-600 focus:ring-red-200' if danger else 'bg-blue-900 hover:bg-blue-800 focus:ring-blue-200' }}">
+            <i class="fa-solid {{ submit_icon }}" aria-hidden="true"></i><i data-spinner hidden class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+            <span data-label>{{ submit_label }}</span></button>
+    </div>
+</form>
+{% endmacro %}
+
+{% set _input_cls = 'w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:bg-slate-100' %}
+
+{# Text-like input with label, optional hint and an inline error slot. `extra` is raw attribute text. #}
+{% macro field(name, label, value='', type='text', required=false, maxlength=none, hint='', extra='', placeholder='') %}
+<div>
+    <label for="f_{{ name }}" class="mb-1 block text-sm font-semibold text-slate-700">{{ label }}{% if required %} <span class="text-red-600" aria-hidden="true">*</span>{% else %} <span class="font-normal text-slate-400">(optional)</span>{% endif %}</label>
+    <input id="f_{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}" {{ 'required' if required }} {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
+           {% if placeholder %}placeholder="{{ placeholder }}"{% endif %} {{ extra|safe }}
+           class="{{ _input_cls }}">
+    {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+    <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+</div>
+{% endmacro %}
+
+{% macro password_field(name, label, hint='', autocomplete='new-password') %}
+<div>
+    <label for="f_{{ name }}" class="mb-1 block text-sm font-semibold text-slate-700">{{ label }} <span class="text-red-600" aria-hidden="true">*</span></label>
+    <div class="relative">
+        <input id="f_{{ name }}" name="{{ name }}" type="password" required maxlength="128" autocomplete="{{ autocomplete }}" class="pr-11 {{ _input_cls }}">
+        <button type="button" data-password-toggle aria-controls="f_{{ name }}" aria-label="Show password" title="Show password"
+                class="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-500 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-r-lg">
+            <span data-icon-show><i class="fa-regular fa-eye" aria-hidden="true"></i></span><span data-icon-hide class="hidden"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i></span></button>
+    </div>
+    {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+    <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+</div>
+{% endmacro %}
+
+{# Accessible custom dropdown with icons (see static/js/icon_select.js). Submits `name` like a normal <select>.
+   options = list of (value, label, fa-icon-class). #}
+{% macro icon_select(name, label, options, selected='', required=false, disabled=false, hint='', placeholder='Select…') %}
+<div>
+    <label id="lbl_{{ name }}" class="mb-1 block text-sm font-semibold text-slate-700">{{ label }}{% if required %} <span class="text-red-600" aria-hidden="true">*</span>{% endif %}</label>
+    <div class="icon-select relative" data-icon-select>
+        <input type="hidden" name="{{ name }}" value="{{ selected }}" {{ 'disabled' if disabled }}>
+        <button type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="lbl_{{ name }}" {{ 'disabled' if disabled }}
+                class="flex w-full min-h-[40px] items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:bg-slate-100">
+            <span class="flex min-w-0 items-center gap-2"><i data-is-icon class="fa-solid w-4 text-center text-slate-500" aria-hidden="true"></i><span data-is-label class="truncate" data-placeholder="{{ placeholder }}"></span></span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400" aria-hidden="true"></i></button>
+        <ul role="listbox" tabindex="-1" hidden class="absolute z-[70] mt-1 max-h-56 w-full overflow-auto rounded-lg border border-slate-200 bg-white p-1 text-sm shadow-lg">
+            {% for value, text, icon in options %}
+            <li role="option" data-value="{{ value }}" data-icon="{{ icon }}" aria-selected="{{ 'true' if value|string == selected|string else 'false' }}"
+                class="flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 hover:bg-blue-50"><i class="fa-solid {{ icon }} w-4 text-center text-slate-500" aria-hidden="true"></i><span>{{ text }}</span></li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+    <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+</div>
+{% endmacro %}
+
+{% macro textarea_field(name, label, value='', required=false, maxlength=none, rows=3, hint='', placeholder='') %}
+<div>
+    <label for="f_{{ name }}" class="mb-1 block text-sm font-semibold text-slate-700">{{ label }}{% if required %} <span class="text-red-600" aria-hidden="true">*</span>{% else %} <span class="font-normal text-slate-400">(optional)</span>{% endif %}</label>
+    <textarea id="f_{{ name }}" name="{{ name }}" rows="{{ rows }}" {{ 'required' if required }} {% if maxlength %}maxlength="{{ maxlength }}"{% endif %}
+              {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200">{{ value if value is not none else '' }}</textarea>
+    {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+    <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+</div>
+{% endmacro %}
+
+{% macro file_field(name, label, accept, hint='', required=false) %}
+<div>
+    <label for="f_{{ name }}" class="mb-1 block text-sm font-semibold text-slate-700">{{ label }}{% if required %} <span class="text-red-600" aria-hidden="true">*</span>{% else %} <span class="font-normal text-slate-400">(optional)</span>{% endif %}</label>
+    <input id="f_{{ name }}" name="{{ name }}" type="file" accept="{{ accept }}"
+           class="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-1 file:text-sm file:font-semibold file:text-blue-900">
+    {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
+    <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+</div>
+{% endmacro %}

@@ -1,0 +1,105 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}{{ cfg.label }} #{{ item.id }}{% endblock %}
+
+{% set bp = cfg.blueprint %}
+{% set document_id = item[cfg.doc_col] %}
+{% set review_actions = ['start_review', 'approve', 'reject'] %}
+{% set simple = actions|reject('in', review_actions)|list %}
+{% set labels = {
+    'submit': ['Submit for review', 'Submit this for review? You cannot edit it while it is being reviewed.', 'bg-blue-900 hover:bg-blue-800'],
+    'withdraw': ['Withdraw (back to draft)', 'Withdraw this and move it back to draft?', 'bg-slate-600 hover:bg-slate-500']
+} %}
+
+{% block content %}
+<a href="{{ url_for(bp ~ '.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to {{ cfg.plural|lower }}</a>
+
+<div class="mt-2 flex flex-wrap items-start justify-between gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">{{ cfg.label }}: <span class="font-num">{{ item.amount|money }}</span></h1>
+        <p class="mt-1 text-sm text-slate-600">For {{ item.activity_kind }}
+            <a href="{{ url_for(item.activity_kind ~ 's.detail', item_id=item.activity_id) }}" class="text-blue-700 hover:underline font-medium">{{ item.activity_title }}</a>
+            of <strong>{{ item.council_name }}</strong> &middot; by {{ item.owner_name }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+        {{ status_badge(item.status) }}
+        {% if can_edit %}<a href="{{ url_for(bp ~ '.edit', item_id=item.id) }}" class="border border-slate-300 bg-white hover:bg-slate-100 text-sm px-3 py-1.5 rounded-lg">Edit</a>{% endif %}
+    </div>
+</div>
+
+{% if item.status == 'rejected' and item.review_remarks %}
+<div class="mt-4 bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3 text-sm"><strong>Rejected</strong> by {{ item.reviewed_by_name or 'an admin' }}: {{ item.review_remarks }}</div>
+{% endif %}
+{% if item.activity_status not in (['approved', 'completed'] if item.activity_kind == 'event' else ['approved', 'in_progress', 'completed']) or item.activity_archived %}
+<div class="mt-4 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-3 text-sm">This {{ item.activity_kind }} is no longer approved or is archived, so this request cannot be submitted.</div>
+{% endif %}
+
+<div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <dl class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200 text-sm">
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">{{ 'Requested amount' if cfg.kind == 'budget' else 'Amount' }}</dt><dd class="font-num font-medium">{{ item.amount|money }}</dd></div>
+        {% if cfg.kind == 'budget' %}
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Approved amount</dt><dd class="font-num font-medium">{{ item.approved_amount|money if item.approved_amount is not none else '-' }}</dd></div>
+        {% else %}
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Date of expense</dt><dd class="font-medium">{{ item.expense_date }}</dd></div>
+        {% endif %}
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">{{ 'Supporting document' if cfg.kind == 'budget' else 'Receipt' }}</dt>
+            <dd class="font-medium text-right">{% if document_id %}<a href="{{ url_for('documents.download', document_id=document_id) }}" class="text-blue-700 hover:underline"><i class="fa-solid fa-file-arrow-down mr-1"></i>{{ item.doc_name }}</a> <span class="text-xs text-slate-500">({{ item.doc_size|filesize }})</span>{% else %}None attached{% endif %}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Submitted</dt><dd class="font-medium">{{ item.submitted_at|dt if item.submitted_at else 'Not yet' }}</dd></div>
+        <div class="flex justify-between gap-4 px-4 py-3"><dt class="text-slate-500">Reviewed</dt>
+            <dd class="font-medium text-right">{% if item.reviewed_at %}{{ item.reviewed_at|dt }} by {{ item.reviewed_by_name }}{% elif item.reviewed_by_name %}In review by {{ item.reviewed_by_name }}{% else %}-{% endif %}</dd></div>
+    </dl>
+    <div class="bg-white border border-slate-200 rounded-xl p-4 text-sm space-y-3">
+        {% if cfg.kind == 'budget' %}<div><h2 class="font-semibold">Breakdown</h2><p class="whitespace-pre-line text-slate-700">{{ item.breakdown }}</p></div>{% endif %}
+        <div><h2 class="font-semibold">Description</h2><p class="whitespace-pre-line text-slate-700">{{ item.description }}</p></div>
+        <div class="border-t border-slate-200 pt-3">
+            <h2 class="font-semibold">Budget of this {{ item.activity_kind }}</h2>
+            <dl class="mt-1 space-y-1">
+                <div class="flex justify-between"><dt class="text-slate-500">Approved budgets</dt><dd class="font-num">{{ balance.budget|money }}</dd></div>
+                <div class="flex justify-between"><dt class="text-slate-500">Approved expenses</dt><dd class="font-num">{{ balance.spent|money }}</dd></div>
+                <div class="flex justify-between font-semibold"><dt>Available balance</dt><dd class="font-num {{ 'text-red-700' if balance.available <= 0 else 'text-green-700' }}">{{ balance.available|money }}</dd></div>
+            </dl>
+        </div>
+    </div>
+</div>
+
+{% if actions %}
+<div class="mt-4 bg-white border border-slate-200 rounded-xl p-4 space-y-4">
+    <h2 class="font-semibold">Actions</h2>
+
+    {% if actions|select('in', review_actions)|list %}
+    <form method="post" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% if cfg.kind == 'budget' and 'approve' in actions %}
+        <div>
+            <label for="approved_amount" class="block text-sm font-medium mb-1">Approved amount (&#8369;) <span class="text-slate-400">(may be lower than requested)</span></label>
+            <input type="text" inputmode="decimal" id="approved_amount" name="approved_amount" value="{{ '%.2f'|format(item.requested_amount) }}" maxlength="14"
+                   class="w-full max-w-xs border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+        </div>
+        {% endif %}
+        {% if cfg.kind == 'expense' and 'approve' in actions and item.amount > balance.available %}
+        <p class="text-sm text-red-700"><i class="fa-solid fa-triangle-exclamation mr-1"></i>This expense is more than the available balance, so it cannot be approved until another budget is approved.</p>
+        {% endif %}
+        <div>
+            <label for="remarks" class="block text-sm font-medium mb-1">Remarks <span class="text-slate-400">(required to reject)</span></label>
+            <textarea id="remarks" name="remarks" rows="3" maxlength="500"
+                      class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"></textarea>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            {% if 'start_review' in actions %}<button type="submit" formaction="{{ url_for(bp ~ '.act', item_id=item.id, action='start_review') }}" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-slate-600 hover:bg-slate-500">Start review</button>{% endif %}
+            {% if 'approve' in actions %}<button type="submit" formaction="{{ url_for(bp ~ '.act', item_id=item.id, action='approve') }}" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600">Approve</button>{% endif %}
+            {% if 'reject' in actions %}<button type="submit" formaction="{{ url_for(bp ~ '.act', item_id=item.id, action='reject') }}" class="text-white text-sm font-semibold px-4 py-2 rounded-lg bg-red-700 hover:bg-red-600">Reject</button>{% endif %}
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="flex flex-wrap gap-2">
+        {% for action in simple %}
+        <form method="post" action="{{ url_for(bp ~ '.act', item_id=item.id, action=action) }}" data-confirm="{{ labels[action][1] }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="text-white text-sm font-semibold px-4 py-2 rounded-lg {{ labels[action][2] }}">{{ labels[action][0] }}</button>
+        </form>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

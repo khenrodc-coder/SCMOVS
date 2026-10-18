@@ -83,6 +83,11 @@ def create_app():
     app.register_blueprint(settings_bp)
     app.register_blueprint(backups_bp)
 
+    from app.media import media_bp, photo_url
+    from app.profile.routes import profile_bp
+    app.register_blueprint(media_bp)
+    app.register_blueprint(profile_bp)
+
     from app.errors import register_error_handlers
     register_error_handlers(app)
 
@@ -114,6 +119,7 @@ def create_app():
             "system_full_name": app.config["SYSTEM_FULL_NAME"],
             "current_user": g.get("user"),
             "has_permission": has_permission,
+            "photo_url": photo_url,
         }
 
     @app.after_request

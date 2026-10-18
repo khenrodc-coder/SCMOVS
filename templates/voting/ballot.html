@@ -23,6 +23,7 @@
             {% for c in p.candidates %}
             <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50">
                 <input type="radio" name="position_{{ p.position_id }}" value="{{ c.id }}" class="mt-1" {{ 'checked' if selected.get(p.position_id) == c.id }}>
+                {% if photo_url(c.photo_path) %}<img src="{{ photo_url(c.photo_path) }}" alt="" class="h-14 w-14 shrink-0 rounded-full border border-slate-200 object-cover">{% else %}<span class="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-400"><i class="fa-solid fa-user text-xl"></i></span>{% endif %}
                 <span>
                     <span class="block font-semibold text-slate-900">{{ c.full_name }}</span>
                     <span class="block text-xs text-slate-500">{{ c.year_level }} &middot; Section {{ c.section }}</span>

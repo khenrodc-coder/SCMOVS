@@ -34,10 +34,28 @@ def super_admin_home():
     return render_template("super_admin/dashboard.html", **get_dashboard_stats())
 
 
+def school_admin_charts():
+    """Aggregate numbers only (no ballots). Each dataset appears only if the role holds the matching permission."""
+    from app.auth.services import has_permission
+    charts = {}
+    if has_permission("students.view"):
+        rows = fetch_all("SELECT d.name, COUNT(s.id) AS n FROM departments d "
+                         "LEFT JOIN students s ON s.department_id = d.id AND s.status <> 'archived' "
+                         "WHERE d.is_active = 1 GROUP BY d.id, d.name ORDER BY d.name")
+        charts["departments"] = {"labels": [r["name"] for r in rows], "values": [int(r["n"]) for r in rows]}
+    if has_permission("candidates.manage"):
+        counts = {r["status"]: int(r["n"]) for r in fetch_all(
+            "SELECT c.status, COUNT(*) AS n FROM candidates c JOIN elections e ON e.id = c.election_id "
+            "WHERE e.status <> 'archived' GROUP BY c.status")}
+        order = ("pending", "approved", "rejected", "disqualified")
+        charts["candidates"] = {"labels": [o.title() for o in order], "values": [counts.get(o, 0) for o in order]}
+    return charts
+
+
 @dashboard_bp.route("/school-admin/dashboard")
 @role_required("school_admin")
 def school_admin_home():
-    return render_template("school_admin/dashboard.html",
+    return render_template("school_admin/dashboard.html", charts=school_admin_charts(),
                            pending_events=proposals.pending_count(
                                proposals.EVENT),
                            pending_projects=proposals.pending_count(
@@ -87,7 +105,8 @@ def student_home():
     return render_template("student/dashboard.html", overview=student_dashboard.overview(g.user))
 
 
-@dashboard_bp.route("/profile")
+@dashboard_bp.route("/account")
 @login_required
 def profile():
-    return render_template("profile.html")
+    """Kept so existing links (url_for('dashboard.profile')) still work: the page now lives in app/profile."""
+    return redirect(url_for("profile.page"))

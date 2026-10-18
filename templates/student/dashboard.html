@@ -73,7 +73,7 @@
             {{ panel_head('fa-user', 'My account') }}
             <div class="grid gap-2 p-3">
                 {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View your account details') }}
-                {{ quick_link(url_for('auth.change_password'), 'fa-key', 'Change password', 'Keep your account secure') }}
+                {{ quick_link(url_for('profile.page'), 'fa-key', 'Change password', 'Keep your account secure') }}
             </div>
         </section>
     </div>

@@ -111,10 +111,10 @@ def main():
         user_ids = {}
         for username, full_name, role, password, email in STAFF:
             cur.execute(
-                "INSERT INTO users (username, email, password_hash, full_name, role_id) "
-                "VALUES (%s, %s, %s, %s, %s)",
-                (username, email, generate_password_hash(
-                    password), full_name, role_ids[role]),
+                "INSERT INTO users (username, email, password_hash, full_name, first_name, last_name, role_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (username, email, generate_password_hash(password), full_name,
+                 full_name.split(" ", 1)[0], full_name.split(" ", 1)[1] if " " in full_name else None, role_ids[role]),
             )
             user_ids[username] = cur.lastrowid
 
@@ -124,9 +124,10 @@ def main():
         student_ids = {}
         for number, first, last, dept_code, year_level, section in STUDENTS:
             cur.execute(
-                "INSERT INTO users (username, password_hash, full_name, role_id) VALUES (%s, %s, %s, %s)",
+                "INSERT INTO users (username, password_hash, full_name, first_name, last_name, role_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
                 (number, generate_password_hash(PW_STUDENT),
-                 f"{first} {last}", role_ids["student"]),
+                 f"{first} {last}", first, last, role_ids["student"]),
             )
             new_user_id = cur.lastrowid
             cur.execute(

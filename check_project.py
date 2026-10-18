@@ -150,8 +150,8 @@ views = scalar(
     "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=%s AND table_type='VIEW'", (schema,))
 triggers = scalar(
     "SELECT COUNT(*) FROM information_schema.triggers WHERE trigger_schema=%s", (schema,))
-report(tables == 34, "34 tables exist",
-       f"found {tables}" if tables != 34 else "")
+report(tables == 36, "36 tables exist",
+       f"found {tables}" if tables != 36 else "")
 report(views == 2, "2 views exist", f"found {views}" if views != 2 else "")
 report(triggers == 12, "12 triggers exist",
        f"found {triggers}" if triggers != 12 else "")

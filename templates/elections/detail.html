@@ -23,7 +23,7 @@
     <div class="flex items-center gap-2">
         {{ status_badge(election.status) }}
         {% if has_permission('elections.manage') and editable %}
-        <a href="{{ url_for('elections.edit', election_id=election.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</a>
+        <button type="button" data-modal-url="{{ url_for('elections.edit', election_id=election.id) }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm px-3 py-1.5 rounded-lg">Edit</button>
         {% endif %}
     </div>
 </div>

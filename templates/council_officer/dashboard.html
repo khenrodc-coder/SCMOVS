@@ -412,13 +412,13 @@ assignments[0] if assignments else None %}
     {{ panel_head('fa-user', 'My account') }}
     <div class="grid gap-2 p-3">
       {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View
-      your account details') }} {{ quick_link(url_for('auth.change_password'),
-      'fa-key', 'Change password', 'Keep your account secure') }}
+      your account details') }} {{ quick_link(url_for('profile.page'), 'fa-key', 'Change password', 'Keep your account secure') }}
     </div>
   </section>
 </div>
 {% endblock %} {% block scripts %} {% if assignments %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
 <script id="scmovs-charts-data" type="application/json">
   {{ charts|tojson|safe }}
 </script>

@@ -1,0 +1,31 @@
+{% from "components/modal.html" import modal, field, textarea_field, file_field, icon_select %}
+{% set create = mode == 'create' %}
+{% set bp = cfg.blueprint %}
+{% set activity_options = [] %}
+{% for a in activities %}{% set _ = activity_options.append((a.key, a.title ~ ' (' ~ a.kind ~ ', ' ~ a.council_name ~ ')', 'fa-calendar-days' if a.kind == 'event' else 'fa-diagram-project')) %}{% endfor %}
+{% call modal(('New ' if create else 'Edit ') ~ cfg.label, 'fa-wallet' if cfg.kind == 'budget' else 'fa-receipt',
+              url_for(bp ~ '.create') if create else url_for(bp ~ '.edit', item_id=item.id),
+              'Save Draft' if create else 'Save Changes', wide=true,
+              subtitle='Saved as a draft. You submit it for review from its page.' if create else item.activity_title) %}
+    {% if not create and item.status == 'rejected' %}
+        <p class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">This was rejected{% if item.review_remarks %}: <em>{{ item.review_remarks }}</em>{% endif %}. Saving your changes makes it a draft again, so you can submit it for a new review.</p>
+    {% endif %}
+    {% if create %}
+        {{ icon_select('activity', 'Approved event or project', activity_options, activity_key or '', required=true, hint='Only approved events and projects of your council are listed.', placeholder='Select an activity') }}
+    {% else %}
+        <p class="text-sm text-slate-600">For {{ item.activity_kind }}: <strong>{{ item.activity_title }}</strong></p>
+    {% endif %}
+    {% if cfg.kind == 'budget' %}
+        {{ field('requested_amount', 'Requested amount (\u20B1)', form.get('requested_amount', ''), required=true, maxlength=14, placeholder='5000.00', extra='inputmode="decimal"') }}
+        {{ textarea_field('breakdown', 'Budget breakdown', form.get('breakdown', ''), required=true, maxlength=5000, rows=3, placeholder='Food: 2000, Materials: 1500, ...') }}
+        {{ textarea_field('description', 'Description', form.get('description', ''), required=true, maxlength=5000, rows=2) }}
+    {% else %}
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {{ field('amount', 'Amount (\u20B1)', form.get('amount', ''), required=true, maxlength=14, placeholder='350.00', extra='inputmode="decimal"') }}
+            {{ field('expense_date', 'Date of expense', form.get('expense_date', ''), type='date', required=true) }}
+        </div>
+        {{ field('description', 'Description', form.get('description', ''), required=true, maxlength=500) }}
+    {% endif %}
+    {{ file_field('document', 'Receipt' if cfg.kind == 'expense' else 'Supporting document', '.pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg',
+                  hint='PDF, PNG or JPG, up to 5 MB.' ~ ((' Current file: ' ~ item.doc_name ~ '. Choose a new file only to replace it.') if (not create and item.doc_name) else '') ~ (' A receipt is required to submit.' if cfg.kind == 'expense' else '')) }}
+{% endcall %}

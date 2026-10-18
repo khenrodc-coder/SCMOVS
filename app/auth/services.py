@@ -149,7 +149,8 @@ def load_current_user():
         return None
 
     user = cast(dict[str, Any] | None, fetch_one(
-        "SELECT u.id, u.username, u.email, u.full_name, u.is_active, u.must_change_password, "
+        "SELECT u.id, u.username, u.email, u.full_name, u.first_name, u.middle_name, u.last_name, "
+        "       u.photo_path, u.theme_preference, u.is_active, u.must_change_password, "
         "       r.name AS role, r.display_name AS role_display "
         "FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = %s",
         (user_id,),

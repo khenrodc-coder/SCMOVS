@@ -1,0 +1,20 @@
+{% from "components/modal.html" import modal, field, icon_select %}
+{% set create = mode == 'create' %}
+{% set dept_options = [] %}{% for d in departments %}{% set _ = dept_options.append((d.id|string, d.name, 'fa-building-columns')) %}{% endfor %}
+{% set year_options = [] %}{% for y in school_years %}{% set _ = year_options.append((y.id|string, y.name, 'fa-calendar-days')) %}{% endfor %}
+{% call modal('New Election' if create else 'Edit Election', 'fa-check-to-slot',
+              url_for('elections.create') if create else url_for('elections.edit', election_id=election.id),
+              'Create Election' if create else 'Save Changes', wide=true,
+              subtitle='Created as a draft. You add its positions next.' if create else election.name) %}
+    {{ field('name', 'Election name', form.get('name', ''), required=true, maxlength=150, placeholder='College Student Council Election 2026') }}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {{ icon_select('department_id', 'Department', dept_options, form.get('department_id', ''), required=true, disabled=locked, placeholder='Select a department') }}
+        {{ icon_select('school_year_id', 'School year', year_options, form.get('school_year_id', ''), required=true, disabled=locked, placeholder='Select a school year') }}
+    </div>
+    {% if locked %}<p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Candidates are already registered, so the department and school year are locked.</p>{% endif %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {{ field('start_at', 'Voting starts', form.get('start_at', ''), type='datetime-local', required=true) }}
+        {{ field('end_at', 'Voting ends', form.get('end_at', ''), type='datetime-local', required=true) }}
+    </div>
+    <p class="text-xs text-slate-500">Only students of the chosen department and school year can vote, and only between these two times. Only that department's students can run as candidates.</p>
+{% endcall %}

@@ -1,4 +1,5 @@
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from app.modal_utils import json_error_list, json_ok, json_redirect, json_reload, modal_notice, wants_json
 
 from app.auth.decorators import access_required
 from app.councils import services
@@ -33,9 +34,9 @@ def _get_officer_or_404(council, officer_id):
     return officer
 
 
-def _form_page(mode, form, errors, council=None, locked=False):
+def _form_fragment(mode, form, council=None, locked=False):
     departments, years, elections = services.get_form_options(council)
-    return render_template("councils/form.html", mode=mode, form=form, errors=errors, council=council, locked=locked,
+    return render_template("councils/_form_modal.html", mode=mode, form=form, council=council, locked=locked,
                            departments=departments, school_years=years, elections=elections)
 
 
@@ -54,16 +55,17 @@ def list_page():
 @councils_bp.route("/new", methods=["GET", "POST"])
 @manage
 def create():
-    form, errors = {key: "" for key in FORM_FIELDS}, []
-    if request.method == "POST":
-        form = _read_form()
-        errors = services.validate_council(form)
-        if not errors:
-            council_id = services.create_council(form, g.user["id"])
-            flash(
-                f"Council '{form['name']}' was created. Now assign its officers.", "success")
-            return redirect(url_for("councils.detail", council_id=council_id))
-    return _form_page("create", form, errors)
+    if request.method == "GET":
+        if not wants_json():
+            return redirect(url_for("councils.list_page"))
+        return _form_fragment("create", {key: "" for key in FORM_FIELDS})
+    form = _read_form()
+    errors = services.validate_council(form)
+    if errors:
+        return json_error_list(errors)
+    council_id = services.create_council(form, g.user["id"])
+    return json_redirect(f"Council '{form['name']}' was created. Now assign its officers.",
+                         url_for("councils.detail", council_id=council_id))
 
 
 # ---------------------------------------------------------------- detail
@@ -84,27 +86,32 @@ def detail(council_id):
 def edit(council_id):
     council = _get_or_404(council_id)
     if council["status"] != "active":
-        flash("Only an active council can be edited.", "error")
+        message = "Only an active council can be edited."
+        if wants_json():
+            return modal_notice(message, "Council can't be edited") if request.method == "GET" else json_error_list([message], 409)
+        flash(message, "error")
+        return redirect(url_for("councils.detail", council_id=council_id))
+    if request.method == "GET" and not wants_json():
         return redirect(url_for("councils.detail", council_id=council_id))
 
     # department and school year decide who can be an officer
     locked = council["officer_rows"] > 0
-    form = {"name": council["name"], "department_id": str(council["department_id"]),
-            "school_year_id": str(council["school_year_id"]),
-            "election_id": str(council["election_id"] or ""),
-            "term_start": str(council["term_start"]), "term_end": str(council["term_end"])}
-    errors = []
-    if request.method == "POST":
-        form = _read_form()
-        if locked:
-            form["department_id"] = str(council["department_id"])
-            form["school_year_id"] = str(council["school_year_id"])
-        errors = services.validate_council(form, council, locked)
-        if not errors:
-            services.update_council(council, form, g.user["id"])
-            flash(f"Council '{form['name']}' was updated.", "success")
-            return redirect(url_for("councils.detail", council_id=council_id))
-    return _form_page("edit", form, errors, council, locked)
+    if request.method == "GET":
+        form = {"name": council["name"], "department_id": str(council["department_id"]),
+                "school_year_id": str(council["school_year_id"]),
+                "election_id": str(council["election_id"] or ""),
+                "term_start": str(council["term_start"]), "term_end": str(council["term_end"])}
+        return _form_fragment("edit", form, council, locked)
+
+    form = _read_form()
+    if locked:
+        form["department_id"] = str(council["department_id"])
+        form["school_year_id"] = str(council["school_year_id"])
+    errors = services.validate_council(form, council, locked)
+    if errors:
+        return json_error_list(errors)
+    services.update_council(council, form, g.user["id"])
+    return json_reload(f"Council '{form['name']}' was updated.")
 
 
 # ----------------------------------------------------------- status change

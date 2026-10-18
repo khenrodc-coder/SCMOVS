@@ -1,58 +1,82 @@
 {% extends "layouts/app_layout.html" %}
 {% block title %}Settings{% endblock %}
 
-{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+{% set input_class = 'w-full min-h-[36px] rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200' %}
+{% set titles = {} %}{% for code, title in categories %}{% set _ = titles.update({code: title}) %}{% endfor %}
+{% set icons = {'general': 'fa-gear', 'academic': 'fa-graduation-cap', 'election': 'fa-check-to-slot', 'notification': 'fa-bell', 'security': 'fa-shield-halved'} %}
 
-{% block content %}
-<div>
-    <h1 class="text-2xl font-extrabold tracking-tight text-blue-950">System Settings</h1>
-    <p class="text-sm text-slate-600">Each section is saved on its own. Every change is written to the audit log.</p>
-</div>
+{# One compact card per settings category. Same form, same route, same fields as before. #}
+{% macro card(code) %}
+{% set title = titles[code] %}
+<section id="{{ code }}" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="h-{{ code }}">
+    <h2 id="h-{{ code }}" class="flex items-center gap-2 font-sans text-sm font-bold text-blue-950" style="font-family:inherit">
+        <span class="grid h-7 w-7 place-items-center rounded-md bg-blue-50 text-xs text-blue-900"><i class="fa-solid {{ icons[code] }}" aria-hidden="true"></i></span>{{ title }}</h2>
 
-<div class="mt-6 space-y-6 max-w-3xl">
-{% for code, title in categories %}
-    <section id="{{ code }}" class="rounded-xl border border-slate-200 bg-white shadow-sm p-5">
-        <h2 class="text-lg font-semibold">{{ title }}</h2>
+    {% if open_category == code and errors %}
+    <div class="mt-2 rounded-lg border border-red-300 border-l-4 border-l-red-500 bg-red-50 px-3 py-2 text-sm text-red-900" role="alert">
+        <ul class="list-disc space-y-0.5 pl-5">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
 
-        {% if open_category == code and errors %}
-        <div class="mt-3 bg-red-50 border border-red-300 border-l-4 border-l-red-500 text-red-900 rounded-lg px-4 py-3 text-sm" role="alert">
-            <ul class="list-disc pl-5 space-y-1">{% for e in errors %}<li>{{ e }}</li>{% endfor %}</ul>
-        </div>
-        {% endif %}
-
-        {% if code == 'academic' %}
-        <p class="mt-2 text-sm text-slate-600">Academic structure has its own pages.</p>
-        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <a href="{{ url_for('departments.list_page') }}" class="border border-slate-200 rounded-lg p-3 hover:bg-slate-50">
-                <i class="fa-solid fa-building-columns text-blue-900 mr-1"></i><strong>Departments</strong>
-                <span class="block text-slate-500">{{ academic.departments }} active</span></a>
-            <a href="{{ url_for('school_years.list_page') }}" class="border border-slate-200 rounded-lg p-3 hover:bg-slate-50">
-                <i class="fa-solid fa-calendar-days text-blue-900 mr-1"></i><strong>School years</strong>
-                <span class="block text-slate-500">Active: {{ academic.active_year or 'none' }}</span></a>
-        </div>
-        {% else %}
-        <form method="post" action="{{ url_for('settings.save', category=code) }}" class="mt-3 space-y-4">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            {% for d in definitions if d.category == code %}
-            <div>
+    {% if code == 'academic' %}
+    <p class="mt-1.5 text-xs text-slate-500">Academic structure has its own pages.</p>
+    <div class="mt-2 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+        <a href="{{ url_for('departments.list_page') }}" class="rounded-lg border border-slate-200 p-2.5 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200">
+            <i class="fa-solid fa-building-columns mr-1 text-blue-900"></i><strong>Departments</strong>
+            <span class="block text-xs text-slate-500">{{ academic.departments }} active</span></a>
+        <a href="{{ url_for('school_years.list_page') }}" class="rounded-lg border border-slate-200 p-2.5 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200">
+            <i class="fa-solid fa-calendar-days mr-1 text-blue-900"></i><strong>School years</strong>
+            <span class="block text-xs text-slate-500">Active: {{ academic.active_year or 'none' }}</span></a>
+    </div>
+    {% else %}
+    {% set ints = definitions|selectattr('category', 'equalto', code)|selectattr('type', 'equalto', 'int')|list %}
+    <form method="post" action="{{ url_for('settings.save', category=code) }}" class="mt-2 space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {# short number fields sit side by side; text and on/off fields take the full width #}
+        <div class="grid grid-cols-1 gap-x-3 gap-y-2.5 {{ 'sm:grid-cols-2' if ints|length > 1 }}">
+        {% for d in definitions if d.category == code %}
+            <div class="{{ 'sm:col-span-2' if d.type != 'int' and ints|length > 1 }}">
                 {% if d.type == 'bool' %}
-                <label class="inline-flex items-start gap-3 text-sm">
-                    <input type="checkbox" name="{{ d.key }}" value="true" {{ 'checked' if values[d.key] }} class="mt-1 h-4 w-4 accent-blue-900">
+                <label class="flex items-start gap-2.5 text-sm">
+                    <input type="checkbox" name="{{ d.key }}" value="true" {{ 'checked' if values[d.key] }} class="mt-0.5 h-4 w-4 shrink-0 accent-blue-900">
                     <span><span class="font-medium">{{ d.label }}</span><span class="block text-xs text-slate-500">{{ d.help }}</span></span>
                 </label>
                 {% else %}
-                <label for="{{ d.key }}" class="block text-sm font-semibold text-slate-700 mb-1">{{ d.label }}</label>
+                <label for="{{ d.key }}" class="mb-0.5 block text-xs font-semibold text-slate-700">{{ d.label }}</label>
                 <input type="{{ 'number' if d.type == 'int' else 'text' }}" id="{{ d.key }}" name="{{ d.key }}" value="{{ values[d.key] }}"
                        {% if d.type == 'int' %}min="{{ d.min }}" max="{{ d.max }}"{% else %}maxlength="{{ d.max }}"{% endif %}
                        {{ 'required' if d.min }} class="{{ input_class }}">
-                <p class="mt-1 text-xs text-slate-500">{{ d.help }}</p>
+                <p class="mt-0.5 text-[11px] leading-snug text-slate-500">{{ d.help }}</p>
                 {% endif %}
             </div>
-            {% endfor %}
-            <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-5 py-2 rounded-lg">Save {{ title }}</button>
-        </form>
-        {% endif %}
-    </section>
-{% endfor %}
+        {% endfor %}
+        </div>
+        <button type="submit" class="inline-flex min-h-[36px] items-center justify-center gap-2 rounded-lg bg-blue-900 px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200">
+            <i class="fa-solid fa-floppy-disk" aria-hidden="true"></i>Save {{ title }}</button>
+    </form>
+    {% endif %}
+</section>
+{% endmacro %}
+
+{% block content %}
+<div class="mx-auto w-full max-w-6xl">
+    <div>
+        <h1 class="text-xl font-extrabold tracking-tight text-blue-950 sm:text-2xl">System Settings</h1>
+        <p class="text-sm text-slate-600">Each section is saved on its own. Every change is written to the audit log.</p>
+    </div>
+
+    {# Desktop: left column = General + Security; right column (upper-right) = Academic, Election, Notifications.
+       Smaller screens stack in the order: Academic, Election, Notifications, General, Security. #}
+    <div class="mt-3 grid grid-cols-1 items-start gap-3 lg:grid-cols-2">
+        <div class="order-2 space-y-3 lg:order-1">
+            {{ card('general') }}
+            {{ card('security') }}
+        </div>
+        <div class="order-1 space-y-3 lg:order-2">
+            {{ card('academic') }}
+            {{ card('election') }}
+            {{ card('notification') }}
+        </div>
+    </div>
 </div>
 {% endblock %}

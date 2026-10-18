@@ -392,6 +392,18 @@ def _notify_eligible_students(cursor, election, title, message, link_url=None):
         (title[:150], message[:500], link_url, election["department_id"], election["school_year_id"]))
 
 
+def _notify_admins(cursor, election, title, message, link_url):
+    """Tell Super Admins and School Admins that voting opened/closed. Never inserts the same notice twice."""
+    if not get_bool("notifications_enabled", True):
+        return
+    cursor.execute(
+        "INSERT INTO notifications (user_id, title, message, related_module, link_url) "
+        "SELECT u.id, %s, %s, 'elections', %s FROM users u JOIN roles r ON r.id = u.role_id "
+        "WHERE r.name IN ('super_admin', 'school_admin') AND u.is_active = 1 "
+        "AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id = u.id AND n.title = %s AND n.link_url = %s)",
+        (title[:150], message[:500], link_url, title[:150], link_url))
+
+
 def change_status(election, action, actor_id):
     """Apply one status change. Returns an error message, or None when it worked."""
     allowed_from, new_status = ACTIONS[action]
@@ -428,6 +440,10 @@ def change_status(election, action, actor_id):
             db.rollback()
             return "The election was changed by someone else. Please refresh the page."
 
+        if action in ("open", "close"):
+            word = "opened" if action == "open" else "closed"
+            _notify_admins(cursor, election, f"Voting {word}: {election['name']}"[:150],
+                           f"Voting for '{election['name']}' has {word}.", url_for("elections.detail", election_id=election["id"]))
         if action == "open":
             _notify_eligible_students(cursor, election, "Voting is open",
                                       f"Voting for '{election['name']}' is now open until "

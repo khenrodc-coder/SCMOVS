@@ -1,0 +1,31 @@
+{% from "components/modal.html" import modal %}
+{% if blocked %}
+<div class="p-6 text-center">
+    <span class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-amber-50 text-amber-700"><i class="fa-solid fa-key"></i></span>
+    <h2 class="mt-3 text-base font-bold text-blue-950" style="font-family:inherit">Reset your own password?</h2>
+    <p class="mt-1 text-sm text-slate-600">Use <a class="font-semibold text-blue-800 underline" href="{{ url_for('profile.page') }}">your Profile page</a> to change your own password.</p>
+    <button type="button" data-modal-close class="mt-4 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold">Close</button>
+</div>
+{% else %}
+{% call modal('Reset Password', 'fa-key', action|default(url_for('admin.user_reset_password', user_id=target.id)), 'Reset Password', submit_icon='fa-key',
+              loading='Resetting…', subtitle=target.full_name ~ ' (' ~ target.username ~ ')') %}
+    <p class="text-sm text-slate-600">Choose how <strong>{{ target.full_name }}</strong> will get a new password. Existing passwords are never shown.</p>
+    <fieldset class="space-y-2">
+        <legend class="sr-only">Reset method</legend>
+        <label class="flex items-start gap-3 rounded-lg border border-slate-200 p-3 {{ 'cursor-pointer hover:bg-slate-50' if can_email else 'opacity-60' }}">
+            <input type="radio" name="method" value="email" class="mt-1" {{ 'checked' if can_email else 'disabled' }}>
+            <span><span class="block text-sm font-semibold text-slate-800"><i class="fa-solid fa-envelope mr-1 text-blue-800"></i>Email a secure reset link <span class="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800">Recommended</span></span>
+                <span class="block text-xs text-slate-500">
+                    {% if can_email %}Sent to {{ masked }}. The link expires in 30 minutes and works once.
+                    {% elif not target.email %}Unavailable: this account has no email address.
+                    {% else %}Unavailable: email (SMTP) is not configured on the server.{% endif %}</span></span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50">
+            <input type="radio" name="method" value="temp" class="mt-1" {{ '' if can_email else 'checked' }}>
+            <span><span class="block text-sm font-semibold text-slate-800"><i class="fa-solid fa-lock mr-1 text-amber-700"></i>Generate a one-time temporary password</span>
+                <span class="block text-xs text-slate-500">Shown once on screen. The user must change it at next login.</span></span>
+        </label>
+    </fieldset>
+    <p data-error-for="method" hidden class="text-xs font-medium text-red-700"></p>
+{% endcall %}
+{% endif %}

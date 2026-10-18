@@ -1,5 +1,6 @@
 import mysql.connector
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from app.modal_utils import json_error_list, json_errors, json_ok, json_redirect, json_reload, modal_notice, wants_json
 
 from app.auth.decorators import access_required
 from app.positions import services
@@ -32,39 +33,41 @@ def list_page():
 @positions_bp.route("/new", methods=["GET", "POST"])
 @manage
 def create():
-    form, errors = {"name": "", "description": "", "seats": "1"}, []
-    if request.method == "POST":
-        form = _read_form()
-        errors = services.validate_position(form)
-        if not errors:
-            try:
-                services.create_position(form, g.user["id"])
-            except mysql.connector.IntegrityError:
-                errors.append("A position with that name already exists.")
-            else:
-                flash(f"Position '{form['name']}' was created.", "success")
-                return redirect(url_for("positions.list_page"))
-    return render_template("positions/form.html", mode="create", form=form, errors=errors, position=None)
+    if request.method == "GET":
+        if not wants_json():
+            return redirect(url_for("positions.list_page"))
+        return render_template("positions/_form_modal.html", mode="create", position=None,
+                               form={"name": "", "description": "", "seats": "1"})
+    form = _read_form()
+    errors = services.validate_position(form)
+    if errors:
+        return json_error_list(errors)
+    try:
+        services.create_position(form, g.user["id"])
+    except mysql.connector.IntegrityError:
+        return json_errors({"name": "A position with that name already exists."})
+    return json_ok(f"Position '{form['name']}' was created.")
 
 
 @positions_bp.route("/<int:position_id>/edit", methods=["GET", "POST"])
 @manage
 def edit(position_id):
     position = _get_or_404(position_id)
-    form, errors = {"name": position["name"], "description": position["description"] or "",
-                    "seats": str(position["seats"])}, []
-    if request.method == "POST":
-        form = _read_form()
-        errors = services.validate_position(form, position_id)
-        if not errors:
-            try:
-                services.update_position(position, form, g.user["id"])
-            except mysql.connector.IntegrityError:
-                errors.append("A position with that name already exists.")
-            else:
-                flash(f"Position '{form['name']}' was updated.", "success")
-                return redirect(url_for("positions.list_page"))
-    return render_template("positions/form.html", mode="edit", form=form, errors=errors, position=position)
+    if request.method == "GET":
+        if not wants_json():
+            return redirect(url_for("positions.list_page"))
+        return render_template("positions/_form_modal.html", mode="edit", position=position,
+                               form={"name": position["name"], "description": position["description"] or "",
+                                     "seats": str(position["seats"])})
+    form = _read_form()
+    errors = services.validate_position(form, position_id)
+    if errors:
+        return json_error_list(errors)
+    try:
+        services.update_position(position, form, g.user["id"])
+    except mysql.connector.IntegrityError:
+        return json_errors({"name": "A position with that name already exists."})
+    return json_ok(f"Position '{form['name']}' was updated.")
 
 
 @positions_bp.route("/<int:position_id>/toggle-active", methods=["POST"])

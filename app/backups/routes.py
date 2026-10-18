@@ -63,11 +63,6 @@ def restore(backup_id):
     backup = _get_or_404(backup_id)
     if backup["status"] != "completed":
         flash("Only completed backups can be restored.", "error")
-    # a backup that still holds ballot data
-    problem = services.protection_problem(backup)
-    if problem:
-        flash(problem, "error")
-        return redirect(url_for("backups.list_page"))
         return redirect(url_for("backups.list_page"))
 
     error = None

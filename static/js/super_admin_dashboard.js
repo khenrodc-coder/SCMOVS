@@ -1,73 +1,33 @@
-// Draws the Super Admin dashboard charts. Data comes from window.SCMOVS_CHARTS (set in the template).
+// Super Admin dashboard charts. Data comes from window.SCMOVS_CHARTS (set in the template; real database numbers).
 (function () {
-    if (typeof Chart === "undefined" || !window.SCMOVS_CHARTS) return;
+    var C = window.SCMOVS_charts, data = window.SCMOVS_CHARTS;
+    if (!C || !data) return;
+    var money = function (v) { return "\u20B1" + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 }); };
 
-    var data = window.SCMOVS_CHARTS;
-    var colors = ["#1e3a8a", "#2563eb", "#60a5fa", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6"];
+    // 1) Election participation: horizontal bars (election names are long). Aggregate counts only.
+    C.hbar("chart-participation", data.participation.labels, [
+        { label: "Eligible voters", data: data.participation.eligible, color: "#93c5fd" },
+        { label: "Votes cast", data: data.participation.cast, color: "#1e3a8a" }
+    ], { emptyText: "No election has opened yet.", maxLabel: 30, tooltip: {
+        afterLabel: function (c) {
+            if (c.dataset.label !== "Votes cast") return "";
+            var el = data.participation.eligible[c.dataIndex];
+            return el ? (Math.round(c.parsed.x * 1000 / el) / 10) + "% of eligible voters" : "";
+        } } });
 
-    // Draw a chart, or show "No data yet" when every value is zero.
-    function makeChart(canvasId, config, allValues) {
-        var canvas = document.getElementById(canvasId);
-        if (!canvas) return;
-        var hasData = allValues.some(function (v) { return v !== 0; });
-        if (!hasData) {
-            canvas.parentElement.innerHTML =
-                '<p class="h-full flex items-center justify-center text-sm text-slate-500">No data yet.</p>';
-            return;
-        }
-        new Chart(canvas, config);
-    }
+    // 2) Students by department: pie with counts + percentages
+    C.pie("chart-departments", data.departments.labels, data.departments.values, { noun: "students", emptyText: "No students yet." });
 
-    var countScale = { y: { beginAtZero: true, ticks: { precision: 0 } } };
+    // 3) Events and projects by status: horizontal bars
+    C.hbar("chart-status", data.status.labels, [
+        { label: "Events", data: data.status.events, color: "#2563eb" },
+        { label: "Projects", data: data.status.projects, color: "#f59e0b" }
+    ], { emptyText: "No events or projects yet." });
 
-    // 1) Students by department
-    makeChart("chart-departments", {
-        type: "doughnut",
-        data: {
-            labels: data.departments.labels,
-            datasets: [{ data: data.departments.values, backgroundColor: colors }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
-    }, data.departments.values);
-
-    // 2) Election participation (aggregate numbers only)
-    makeChart("chart-participation", {
-        type: "bar",
-        data: {
-            labels: data.participation.labels,
-            datasets: [
-                { label: "Eligible voters", data: data.participation.eligible, backgroundColor: "#93c5fd" },
-                { label: "Votes cast", data: data.participation.cast, backgroundColor: "#1e3a8a" }
-            ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: countScale }
-    }, data.participation.eligible.concat(data.participation.cast));
-
-    // 3) Events and projects by status
-    makeChart("chart-status", {
-        type: "bar",
-        data: {
-            labels: data.status.labels,
-            datasets: [
-                { label: "Events", data: data.status.events, backgroundColor: "#2563eb" },
-                { label: "Projects", data: data.status.projects, backgroundColor: "#f59e0b" }
-            ]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: countScale }
-    }, data.status.events.concat(data.status.projects));
-
-    // 4) Budget vs expenses
-    makeChart("chart-finance", {
-        type: "bar",
-        data: {
-            labels: data.finance.labels,
-            datasets: [{ label: "Amount", data: data.finance.values, backgroundColor: ["#1e3a8a", "#ef4444", "#10b981"] }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true } }
-        }
-    }, data.finance.values);
+    // 4) Budget vs expenses (three bars, stays vertical)
+    C.vbar("chart-finance", data.finance.labels, [{ label: "Amount", data: data.finance.values, color: "#1e3a8a" }], {
+        yTicks: { callback: function (v) { return "\u20B1" + Number(v).toLocaleString(); } },
+        tooltip: { label: function (c) { return " " + money(c.parsed.y); } }, emptyText: "No approved budgets yet." });
+    var fin = window.Chart && Chart.getChart("chart-finance");
+    if (fin) { fin.data.datasets[0].backgroundColor = ["#1e3a8a", "#ef4444", "#10b981"]; fin.update("none"); }
 })();

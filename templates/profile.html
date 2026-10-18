@@ -1,18 +1,118 @@
 {% extends "layouts/app_layout.html" %}
+{% from "components/modal.html" import password_field %}
+{% from "components/avatar.html" import avatar with context %}
 {% block title %}Profile{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-extrabold tracking-tight text-blue-950">My Profile</h1>
+<div class="mx-auto max-w-5xl">
+<h1 class="text-2xl font-extrabold tracking-tight text-blue-950">Profile</h1>
 
-<dl class="mt-6 max-w-lg rounded-xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200 text-sm">
-    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Full name</dt><dd class="font-medium">{{ current_user.full_name }}</dd></div>
-    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Username</dt><dd class="font-medium">{{ current_user.username }}</dd></div>
-    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Email</dt><dd class="font-medium">{{ current_user.email or 'Not set' }}</dd></div>
-    <div class="flex justify-between px-5 py-3"><dt class="text-slate-500">Role</dt><dd class="font-medium">{{ current_user.role_display }}</dd></div>
-</dl>
+<div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2" aria-labelledby="info-h">
+        <div class="flex items-center justify-between gap-2">
+            <h2 id="info-h" class="font-sans text-base font-bold text-blue-950" style="font-family:inherit">User information</h2>
+            {% if can_edit %}<button type="button" data-modal-url="{{ url_for('profile.edit') }}" class="inline-flex min-h-[36px] items-center gap-2 rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200"><i class="fa-solid fa-user-pen"></i>Edit Profile</button>{% endif %}
+        </div>
+        <dl class="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+            {% for label, value in [('First name', profile.first_name), ('Middle name', profile.middle_name), ('Last name', profile.last_name), ('Username', profile.username), ('Email address', profile.email), ('Role', profile.role_display)] %}
+            <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</dt><dd class="mt-0.5 break-words font-medium">{{ value or '—' }}</dd></div>
+            {% endfor %}
+            {% if profile.student_number %}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Student ID</dt><dd class="mt-0.5 font-medium">{{ profile.student_number }}</dd></div>{% endif %}
+            {% if profile.department %}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Department</dt><dd class="mt-0.5 font-medium">{{ profile.department }}</dd></div>{% endif %}
+        </dl>
+        {% if not can_edit %}<p class="mt-3 text-xs text-slate-500">Your name and Student ID come from the school record. Ask the administration if something needs correcting.</p>{% endif %}
+    </section>
 
-<a href="{{ url_for('auth.change_password') }}"
-   class="inline-block mt-6 bg-blue-900 hover:bg-blue-800 text-white inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 text-sm font-semibold px-5 py-2 rounded-lg">
-    Change Password
-</a>
+    <section class="rounded-xl border border-slate-200 bg-white p-5 text-center shadow-sm" aria-labelledby="photo-h">
+        <h2 id="photo-h" class="sr-only">Profile photo</h2>
+        <div id="photo-wrap" class="mx-auto h-32 w-32">
+            {{ avatar(profile.photo_path, profile.full_name, 'h-32 w-32', 'text-5xl', 'border-4 border-amber-400') }}
+        </div>
+        <p id="photo-msg" role="status" class="mt-2 min-h-[1.25rem] text-xs"></p>
+        <input id="photo-input" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" aria-label="Choose a photo">
+        <div id="photo-pick" class="mt-1 flex flex-wrap justify-center gap-2">
+            <button type="button" id="photo-choose" class="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200"><i class="fa-solid fa-camera"></i><span>{{ 'Change Photo' if profile.photo_path else 'Upload Photo' }}</span></button>
+            {% if profile.photo_path %}<button type="button" id="photo-remove" class="inline-flex min-h-[36px] items-center gap-2 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-4 focus:ring-red-100"><i class="fa-solid fa-trash-can"></i>Remove</button>{% endif %}
+        </div>
+        <div id="photo-confirm" hidden class="mt-1 flex flex-wrap justify-center gap-2">
+            <button type="button" id="photo-save" class="inline-flex min-h-[36px] items-center gap-2 rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800"><i class="fa-solid fa-floppy-disk"></i><span>Save photo</span></button>
+            <button type="button" id="photo-cancel" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold hover:bg-slate-50">Cancel</button>
+        </div>
+        <p class="mt-2 text-xs text-slate-500">JPG, PNG or WebP · max 5 MB</p>
+    </section>
+
+    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-3" aria-labelledby="pw-h">
+        <h2 id="pw-h" class="font-sans text-base font-bold text-blue-950" style="font-family:inherit"><i class="fa-solid fa-key mr-1 text-amber-600"></i>Change password</h2>
+        <form id="pw-form" method="post" action="{{ url_for('profile.change_password') }}" class="mt-3" data-modal-form-inline>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <p data-form-error hidden role="alert" class="mb-3 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900"></p>
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                {{ password_field('current_password', 'Current password', autocomplete='current-password') }}
+                {{ password_field('new_password', 'New password', hint='At least ' ~ min_length ~ ' characters, with letters and numbers.') }}
+                {{ password_field('confirm_password', 'Confirm new password') }}
+            </div>
+            <button type="submit" class="mt-3 inline-flex min-h-[40px] items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:opacity-60"><i class="fa-solid fa-lock"></i><span data-label>Update password</span></button>
+        </form>
+    </section>
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+    var token = document.querySelector('meta[name="csrf-token"]').content, MAX = 5 * 1024 * 1024;
+    var input = document.getElementById("photo-input"), wrap = document.getElementById("photo-wrap"), msg = document.getElementById("photo-msg");
+    var pick = document.getElementById("photo-pick"), confirmBox = document.getElementById("photo-confirm"), original = wrap.innerHTML, saving = false;
+    function say(t, bad) { msg.textContent = t || ""; msg.className = "mt-2 min-h-[1.25rem] text-xs font-medium " + (bad ? "text-red-700" : "text-green-700"); }
+    function post(url, fd) { return fetch(url, { method: "POST", body: fd, headers: { "X-Requested-With": "fetch", "X-CSRFToken": token }, credentials: "same-origin" }).then(function (r) { return r.json().then(function (d) { return { s: r.status, d: d }; }); }); }
+    function reset() { wrap.innerHTML = original; pick.hidden = false; confirmBox.hidden = true; input.value = ""; }
+
+    document.getElementById("photo-choose").addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+        var f = input.files[0]; if (!f) return;
+        if (["image/jpeg", "image/png", "image/webp"].indexOf(f.type) < 0) { say("Choose a JPG, PNG or WebP image.", true); input.value = ""; return; }
+        if (f.size > MAX) { say("That image is larger than 5 MB.", true); input.value = ""; return; }
+        say("Preview — click Save photo to keep it.");
+        wrap.innerHTML = '<img alt="Photo preview" class="h-32 w-32 rounded-full border-4 border-amber-400 object-cover" src="' + URL.createObjectURL(f) + '">';
+        pick.hidden = true; confirmBox.hidden = false;
+    });
+    document.getElementById("photo-cancel").addEventListener("click", function () { reset(); say(""); });
+    document.getElementById("photo-save").addEventListener("click", function () {
+        if (saving || !input.files[0]) return; saving = true; this.disabled = true; say("Uploading…");
+        var fd = new FormData(); fd.append("photo", input.files[0]); var btn = this;
+        post("{{ url_for('profile.upload_photo') }}", fd).then(function (r) {
+            saving = false; btn.disabled = false;
+            if (r.d.ok) { location.reload(); } else { reset(); say((r.d.errors && r.d.errors.photo) || r.d.message || "Upload failed.", true); }
+        }).catch(function () { saving = false; btn.disabled = false; say("Network error. Your old photo was kept.", true); });
+    });
+    var rm = document.getElementById("photo-remove");
+    if (rm) rm.addEventListener("click", function () {
+        Swal.fire({ title: "Remove your photo?", icon: "question", showCancelButton: true, confirmButtonText: "Remove", confirmButtonColor: "#b91c1c" }).then(function (res) {
+            if (!res.isConfirmed) return;
+            post("{{ url_for('profile.remove_photo') }}", new FormData()).then(function (r) { if (r.d.ok) location.reload(); else say(r.d.message, true); });
+        });
+    });
+
+    // Change-password card (same inline-error style as the modals)
+    var form = document.getElementById("pw-form"), busy = false;
+    form.setAttribute("novalidate", "novalidate");
+    window.SCMOVS_initModalForm && window.SCMOVS_initModalForm(form);
+    form.addEventListener("submit", function (e) {
+        e.preventDefault(); if (busy) return;
+        form.querySelectorAll("[data-error-for]").forEach(function (n) { n.hidden = true; n.textContent = ""; });
+        var box = form.querySelector("[data-form-error]"); box.hidden = true;
+        var show = function (errs, m) { Object.keys(errs || {}).forEach(function (k) { var n = form.querySelector('[data-error-for="' + k + '"]'); if (n) { n.textContent = errs[k]; n.hidden = false; } }); if (m && !Object.keys(errs || {}).length) { box.textContent = m; box.hidden = false; } };
+        var v = form._clientValidate(form); if (Object.keys(v).length) { show(v); return; }
+        busy = true; var b = form.querySelector("button[type=submit]"); b.disabled = true; b.querySelector("[data-label]").textContent = "Updating…";
+        post(form.action, new FormData(form)).then(function (r) {
+            busy = false; b.disabled = false; b.querySelector("[data-label]").textContent = "Update password";
+            if (r.d.ok) { form.reset(); Swal.fire({ toast: true, position: "top-end", icon: "success", title: r.d.message, showConfirmButton: false, timer: 4000 }); }
+            else show(r.d.errors, r.d.message);
+        }).catch(function () { busy = false; b.disabled = false; b.querySelector("[data-label]").textContent = "Update password"; show({}, "Network error. Nothing was changed."); });
+    });
+    // confirm-password rule for client side
+    var cp = form.querySelector('[name="confirm_password"]'); cp.setAttribute("data-rule", "password-match"); cp.setAttribute("data-match", "new_password");
+})();
+</script>
 {% endblock %}
