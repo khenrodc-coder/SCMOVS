@@ -5,7 +5,14 @@
 {# Compact sidebar link. `icon` is a Heroicons name (components/icons.html): outline by default, solid when active.
    The label fades out (icon stays) when the sidebar is collapsed. #}
 {% macro nav_link(url, icon, label, active) %}
-<a href="{{ url }}" title="{{ label }}" aria-label="{{ label }}" {{ 'aria-current="page"' if active }}
+{# Links shown when the sidebar is COLLAPSED (icons only). Everything else stays in the expanded sidebar. #}
+{% set pinned_labels = {
+    'super_admin': ['Dashboard', 'Users', 'Students', 'Elections', 'Reports', 'Settings', 'Profile'],
+    'school_admin': ['Dashboard', 'Students', 'Elections', 'Candidates', 'Reports', 'Profile'],
+    'council_officer': ['My Elections', 'Dashboard', 'Events', 'Budgets', 'Reports', 'Profile'],
+    'student': ['My Elections', 'Dashboard', 'Profile']
+}.get(current_user.role, ['Dashboard', 'Profile']) %}
+<a href="{{ url }}" title="{{ label }}" aria-label="{{ label }}" {{ 'aria-current="page"' if active }} {{ 'data-pin' if label in pinned_labels }}
    class="nav-item flex min-h-[36px] items-center gap-3 rounded-md border-l-[3px] px-3 py-1.5 text-[13px] transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white/30 {{ 'border-amber-400 bg-white/10 font-semibold text-white' if active else 'border-transparent text-blue-100 hover:bg-white/5 hover:text-white' }}">
     <span class="nav-icon grid h-5 w-5 shrink-0 place-items-center">{{ hi(icon, 'solid' if active else 'outline', 'h-5 w-5') }}</span><span class="nav-label truncate">{{ label }}</span>
 </a>
@@ -89,6 +96,10 @@
 
         /* Icons slide to the exact centre of the rail (no jump): link width = rail width minus nav padding. */
         html.sb-collapsed #sidebar .nav-item { gap: 0; padding-left: calc((100% - 1.25rem) / 2 - 3px); padding-right: 0; }
+
+        /* Collapsed: show only the key links of the role (those marked data-pin) and hide groups left empty. */
+        html.sb-collapsed #sidebar .nav-item:not([data-pin]) { display: none; }
+        html.sb-collapsed #sidebar .nav-group:not(:has(.nav-item[data-pin])) { display: none; }
 
         /* Collapsed: the logo and branding are removed completely (not shrunk or replaced); only the toggle stays. */
         html.sb-collapsed #sidebar .brand { display: none; }
