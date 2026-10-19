@@ -17,9 +17,9 @@
     {% endif %}
     {% if target and target.student_number %}
         {{ field('email', 'Email address', form.get('email', ''), type='email', required=true, maxlength=120,
-                 hint='Student email: ' ~ target.student_number ~ '@holycross.edu.ph', extra='data-rule="email" autocomplete="off"') }}
+                 hint='Student email: ' ~ target.student_number ~ '@holycross.edu.ph, or a personal @gmail.com address.', extra='data-rule="email" autocomplete="off"') }}
     {% else %}
-        {{ field('email', 'Email address', form.get('email', ''), type='email', required=true, maxlength=120, extra='data-rule="email" autocomplete="off"') }}
+        {{ field('email', 'Email address', form.get('email', ''), type='email', required=true, maxlength=120, hint='Only @gmail.com or @holycross.edu.ph addresses are accepted.', extra='data-rule="email" autocomplete="off"') }}
     {% endif %}
     {{ icon_select('role', 'Role', role_options, form.get('role', ''), required=true, disabled=editing_self,
                    hint='You cannot change your own role.' if editing_self else ('This user has a student record, so only Student or Council Officer can be assigned.' if target and target.has_student else ''),

@@ -3,7 +3,7 @@
  *   student-email needs data-match="<name of the Student ID input>";  password-match needs data-match="<password input name>"
  */
 (function () {
-    var EMAIL = /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, SID = /^[0-9]{8}$/, DOMAIN = "3holycross.edu.ph";
+    var EMAIL = /^[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/, SID = /^[0-9]{8}$/, DOMAIN = "holycross.edu.ph", PERSONAL = "gmail.com", ONLY = "Only @" + PERSONAL + " and @" + DOMAIN + " email addresses are accepted.";
     var NAME = /^[\p{L}][\p{L} .'-]*$/u;
 
     function val(form, name) { var el = form.querySelector('[name="' + name + '"]'); return el ? el.value : ""; }
@@ -17,14 +17,17 @@
             if (!v) return;
             var rule = el.getAttribute("data-rule");
             if (rule === "name" && !NAME.test(v)) errors[name] = "Use letters only (spaces, . ' - allowed).";
-            if (rule === "email" && !EMAIL.test(v)) errors[name] = "Enter a valid email address.";
+            if (rule === "email") {
+                if (!EMAIL.test(v)) errors[name] = "Enter a valid email address.";
+                else if ([PERSONAL, DOMAIN].indexOf(v.toLowerCase().split("@")[1]) < 0) errors[name] = ONLY;
+            }
             if (rule === "student-id" && !SID.test(v)) errors[name] = "Student ID must be exactly 8 digits (numbers only, no spaces or hyphens).";
             if (rule === "student-email") {
                 var sid = val(form, el.getAttribute("data-match")).trim(), low = v.toLowerCase(), parts = low.split("@");
                 if (!EMAIL.test(low)) errors[name] = "Enter a valid email address.";
-                else if (parts[1] !== DOMAIN) errors[name] = "Student email must use the @" + DOMAIN + " domain.";
-                else if (!SID.test(parts[0])) errors[name] = "Student email must be 8 digits followed by @" + DOMAIN + ".";
-                else if (SID.test(sid) && parts[0] !== sid) errors[name] = "The email's student number (" + parts[0] + ") does not match the Student ID (" + sid + "). It should be " + sid + "@" + DOMAIN + ".";
+                else if ([PERSONAL, DOMAIN].indexOf(parts[1]) < 0) errors[name] = ONLY;
+                else if (parts[1] === DOMAIN && !SID.test(parts[0])) errors[name] = "A school email must be 8 digits followed by @" + DOMAIN + ". You can also use a personal @" + PERSONAL + " address.";
+                else if (parts[1] === DOMAIN && SID.test(sid) && parts[0] !== sid) errors[name] = "The email's student number (" + parts[0] + ") does not match the Student ID (" + sid + "). It should be " + sid + "@" + DOMAIN + ", or use a personal @" + PERSONAL + " address.";
             }
             if (rule === "password-match" && v !== val(form, el.getAttribute("data-match"))) errors[name] = "The passwords do not match.";
         });

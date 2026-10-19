@@ -54,7 +54,8 @@
 {% macro password_toggle(target) -%}
 <button type="button" data-password-toggle aria-controls="{{ target }}" aria-label="Show password" title="Show password"
         class="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-slate-500 transition hover:text-blue-900 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
-    <span data-icon-show>{{ hi('eye', 'outline', 'h-5 w-5') }}</span>
-    <span data-icon-hide class="hidden">{{ hi('eye-slash', 'outline', 'h-5 w-5') }}</span>
+    {# The icon shows the CURRENT state: closed eye while the password is hidden, open eye while it is shown. #}
+    <span data-icon-show>{{ hi('eye-slash', 'outline', 'h-5 w-5') }}</span>
+    <span data-icon-hide class="hidden">{{ hi('eye', 'outline', 'h-5 w-5') }}</span>
 </button>
 {%- endmacro %}

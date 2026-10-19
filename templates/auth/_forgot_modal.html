@@ -1,6 +1,6 @@
 {% from "components/modal.html" import modal, field %}
 {% call modal('Forgot Password', 'fa-key', url_for('auth.forgot_password'), 'Send Reset Instructions', submit_icon='fa-paper-plane', loading='Sending…') %}
-    <p class="text-sm text-slate-600">Enter your registered Holy Cross College institutional email address. We will send you instructions to reset your password.</p>
-    {{ field('email', 'Institutional Email Address', '', type='email', required=true, maxlength=120, placeholder='e.g. 80382024@holycross.edu.ph',
+    <p class="text-sm text-slate-600">Enter the email address registered to your account (@holycross.edu.ph or @gmail.com). We will send you instructions to reset your password.</p>
+    {{ field('email', 'Registered Email Address', '', type='email', required=true, maxlength=120, placeholder='e.g. yourname@gmail.com or 80382024@holycross.edu.ph',
              extra='data-rule="email" autocomplete="email" inputmode="email"') }}
 {% endcall %}

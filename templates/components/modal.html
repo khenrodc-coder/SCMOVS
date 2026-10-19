@@ -56,7 +56,7 @@
         <input id="f_{{ name }}" name="{{ name }}" type="password" required maxlength="128" autocomplete="{{ autocomplete }}" class="pr-11 {{ _input_cls }}">
         <button type="button" data-password-toggle aria-controls="f_{{ name }}" aria-label="Show password" title="Show password"
                 class="absolute inset-y-0 right-0 grid w-10 place-items-center text-slate-500 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-r-lg">
-            <span data-icon-show><i class="fa-regular fa-eye" aria-hidden="true"></i></span><span data-icon-hide class="hidden"><i class="fa-regular fa-eye-slash" aria-hidden="true"></i></span></button>
+            <span data-icon-show><i class="fa-regular fa-eye-slash" aria-hidden="true"></i></span><span data-icon-hide class="hidden"><i class="fa-regular fa-eye" aria-hidden="true"></i></span></button>
     </div>
     {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
     <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>

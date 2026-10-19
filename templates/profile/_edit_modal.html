@@ -5,5 +5,5 @@
         {{ field('middle_name', 'Middle name', form.middle_name or '', maxlength=60, extra='data-rule="name"') }}
         {{ field('last_name', 'Last name', form.last_name or '', required=true, maxlength=60, extra='data-rule="name"') }}
     </div>
-    {{ field('email', 'Email address', form.email or '', type='email', required=true, maxlength=120, extra='data-rule="email"') }}
+    {{ field('email', 'Email address', form.email or '', type='email', required=true, maxlength=120, hint='Only @gmail.com or @holycross.edu.ph addresses are accepted.', extra='data-rule="email"') }}
 {% endcall %}

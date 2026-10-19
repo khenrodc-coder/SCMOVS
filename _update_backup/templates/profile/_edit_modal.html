@@ -1,0 +1,9 @@
+{% from "components/modal.html" import modal, field %}
+{% call modal('Edit Profile', 'fa-user-pen', url_for('profile.edit'), 'Save Changes', wide=true, subtitle=profile.username) %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {{ field('first_name', 'First name', form.first_name or '', required=true, maxlength=60, extra='data-rule="name"') }}
+        {{ field('middle_name', 'Middle name', form.middle_name or '', maxlength=60, extra='data-rule="name"') }}
+        {{ field('last_name', 'Last name', form.last_name or '', required=true, maxlength=60, extra='data-rule="name"') }}
+    </div>
+    {{ field('email', 'Email address', form.email or '', type='email', required=true, maxlength=120, extra='data-rule="email"') }}
+{% endcall %}

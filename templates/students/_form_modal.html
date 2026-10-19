@@ -24,7 +24,7 @@
     </div>
     {% if create or student.student_number|length == 8 and student.student_number.isdigit() %}
         {{ field('email', 'Institutional email', form.email, type='email', required=true, maxlength=120,
-                 hint='Must be the 8-digit Student ID followed by @holycross.edu.ph', extra='data-rule="student-email" data-match="student_number"' if create else 'data-rule="email"') }}
+                 hint='Use the school address (8-digit Student ID + @holycross.edu.ph) or a personal @gmail.com address.', extra='data-rule="student-email" data-match="student_number"' if create else 'data-rule="email"') }}
     {% else %}
         {{ field('email', 'Email address', form.email, type='email', required=true, maxlength=120,
                  hint='This is an older Student ID that is not 8 digits, so any valid email is accepted.', extra='data-rule="email"') }}

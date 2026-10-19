@@ -17,7 +17,7 @@ from app.audit.services import log_action
 from app.db import fetch_one, get_db
 from app.mail_templates import reset_email
 from app.mailer import MailNotConfigured, MailSendError, mail_is_configured, send_mail
-from app.validators import STUDENT_ID_RE, STUDENT_EMAIL_DOMAIN, normalize_email
+from app.validators import PERSONAL_EMAIL_DOMAIN, STUDENT_EMAIL_DOMAIN, STUDENT_ID_RE, normalize_email
 
 
 def _hash(token):
@@ -38,8 +38,8 @@ def recovery_available():
 def find_eligible_user(email):
     """Return the active account registered with this email, or None.
 
-    Student accounts (anyone with a student record) must use <8-digit Student ID>@holycross.edu.ph
-    AND the digits must equal the registered Student ID. Administrative accounts just need the
+    Student accounts (anyone with a student record) must use a personal @gmail.com address or
+    <their own 8-digit Student ID>@holycross.edu.ph. Administrative accounts just need the
     email they were registered with. Inactive accounts are never eligible.
     """
     email = normalize_email(email)
@@ -53,7 +53,11 @@ def find_eligible_user(email):
     if user["student_number"] is not None:
         number = user["student_number"]
         local, _, domain = email.partition("@")
-        if domain != STUDENT_EMAIL_DOMAIN or not STUDENT_ID_RE.fullmatch(local) or local != number:
+        # A student may be registered with a personal @gmail.com address, or with their school address, which
+        # must carry their own Student ID. Any other address is not eligible.
+        if domain == PERSONAL_EMAIL_DOMAIN:
+            pass
+        elif domain != STUDENT_EMAIL_DOMAIN or not STUDENT_ID_RE.fullmatch(local) or local != number:
             return None
     return user
 
@@ -78,11 +82,9 @@ def _record_request(ip):
     db = get_db()
     cursor = db.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO password_reset_requests (ip_address) VALUES (%s)", (ip,))
+        cursor.execute("INSERT INTO password_reset_requests (ip_address) VALUES (%s)", (ip,))
         # keep the table small
-        cursor.execute(
-            "DELETE FROM password_reset_requests WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")
+        cursor.execute("DELETE FROM password_reset_requests WHERE created_at < DATE_SUB(NOW(), INTERVAL 1 DAY)")
         db.commit()
     except Exception:
         db.rollback()
@@ -118,8 +120,7 @@ def _void_token(token):
     db = get_db()
     cursor = db.cursor()
     try:
-        cursor.execute(
-            "UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = %s", (_hash(token),))
+        cursor.execute("UPDATE password_reset_tokens SET used_at = NOW() WHERE token_hash = %s", (_hash(token),))
         db.commit()
     except Exception:
         db.rollback()
@@ -136,16 +137,14 @@ def email_reset_link(user, ip, actor_id=None):
     from flask import url_for
     token = _create_token(user["id"], ip)
     link = public_base_url() + url_for("auth.reset_password", token=token)
-    subject, text, html = reset_email(
-        link, current_app.config["PASSWORD_RESET_MINUTES"])
+    subject, text, html = reset_email(link, current_app.config["PASSWORD_RESET_MINUTES"])
     try:
         send_mail(user["email"], subject, text, html)
     except (MailNotConfigured, MailSendError):
         _void_token(token)
         raise
     log_action(actor_id or user["id"], "password_reset_requested", "auth",
-               "Password reset email sent" +
-               (" by an administrator" if actor_id else ""),
+               "Password reset email sent" + (" by an administrator" if actor_id else ""),
                affected_record=f"user:{user['id']}")
 
 
@@ -173,8 +172,7 @@ def request_reset(email, ip):
             log_action(user["id"], "password_reset_email_failed", "auth",
                        "Password reset email could not be sent (SMTP error)", affected_record=f"user:{user['id']}")
     else:
-        log_action(None, "password_reset_unknown", "auth",
-                   "Password reset requested for an ineligible address")
+        log_action(None, "password_reset_unknown", "auth", "Password reset requested for an ineligible address")
     return "accepted"
 
 

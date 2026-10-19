@@ -5,8 +5,11 @@ The browser repeats these checks for convenience, but THESE are the ones that co
 import re
 
 STUDENT_EMAIL_DOMAIN = "holycross.edu.ph"
-# exactly eight ASCII digits (fullmatch)
-STUDENT_ID_RE = re.compile(r"[0-9]{8}")
+PERSONAL_EMAIL_DOMAIN = "gmail.com"
+# The ONLY email domains the system accepts, for every kind of account.
+ALLOWED_EMAIL_DOMAINS = (STUDENT_EMAIL_DOMAIN, PERSONAL_EMAIL_DOMAIN)
+ALLOWED_EMAIL_MESSAGE = f"Only @{PERSONAL_EMAIL_DOMAIN} and @{STUDENT_EMAIL_DOMAIN} email addresses are accepted."
+STUDENT_ID_RE = re.compile(r"[0-9]{8}")                         # exactly eight ASCII digits (fullmatch)
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+'-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+")
 NAME_EXTRA_CHARS = set(" .'-")
 NAME_MAX = 60
@@ -51,11 +54,16 @@ def build_full_name(first, middle, last):
 
 
 def validate_email_format(email):
-    """Return an error message or None. `email` must already be normalised."""
+    """Return an error message or None. `email` must already be normalised (lower-case, trimmed).
+
+    Besides the shape of the address, only @gmail.com and @holycross.edu.ph are accepted.
+    """
     if not email:
         return "Email address is required."
     if len(email) > 120 or not EMAIL_RE.fullmatch(email):
         return "Enter a valid email address (maximum 120 characters)."
+    if email.rpartition("@")[2] not in ALLOWED_EMAIL_DOMAINS:
+        return ALLOWED_EMAIL_MESSAGE
     return None
 
 
@@ -73,16 +81,21 @@ def student_email_for(student_id):
 
 
 def validate_student_email(email, student_id):
-    """Student email must be <8-digit Student ID>@holycross.edu.ph and match the Student ID."""
+    """Email rule for a STUDENT account. Either:
+      * a personal @gmail.com address (any name), or
+      * the school address <their own 8-digit Student ID>@holycross.edu.ph.
+    Every other domain is refused (see validate_email_format).
+    """
     problem = validate_email_format(email)
     if problem:
         return problem
     local, _, domain = email.partition("@")
-    if domain != STUDENT_EMAIL_DOMAIN:
-        return f"Student email must use the @{STUDENT_EMAIL_DOMAIN} domain."
+    if domain == PERSONAL_EMAIL_DOMAIN:
+        return None
     if not STUDENT_ID_RE.fullmatch(local):
-        return f"Student email must be 8 digits followed by @{STUDENT_EMAIL_DOMAIN}, for example {student_email_for('80382024')}."
+        return (f"A school email must be 8 digits followed by @{STUDENT_EMAIL_DOMAIN}, for example "
+                f"{student_email_for('80382024')}. You can also use a personal @{PERSONAL_EMAIL_DOMAIN} address.")
     if student_id and local != student_id:
         return (f"The email's student number ({local}) does not match the Student ID ({student_id}). "
-                f"It should be {student_email_for(student_id)}.")
+                f"It should be {student_email_for(student_id)}, or use a personal @{PERSONAL_EMAIL_DOMAIN} address.")
     return None
