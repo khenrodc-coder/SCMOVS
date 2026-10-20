@@ -28,7 +28,8 @@ def send_mail(to_address, subject, text_body, html_body=None):
 
     message = EmailMessage()
     message["Subject"] = subject
-    message["From"] = formataddr((current_app.config["SYSTEM_NAME"] + " Support", cfg["MAIL_SENDER"]))
+    message["From"] = formataddr(
+        (current_app.config["SYSTEM_NAME"] + " Support", cfg["MAIL_SENDER"]))
     message["To"] = to_address
     message.set_content(text_body)
     if html_body:
@@ -37,9 +38,11 @@ def send_mail(to_address, subject, text_body, html_body=None):
     try:
         context = ssl.create_default_context()
         if cfg["MAIL_USE_SSL"]:
-            server = smtplib.SMTP_SSL(cfg["MAIL_SERVER"], cfg["MAIL_PORT"], timeout=15, context=context)
+            server = smtplib.SMTP_SSL(
+                cfg["MAIL_SERVER"], cfg["MAIL_PORT"], timeout=15, context=context)
         else:
-            server = smtplib.SMTP(cfg["MAIL_SERVER"], cfg["MAIL_PORT"], timeout=15)
+            server = smtplib.SMTP(cfg["MAIL_SERVER"],
+                                  cfg["MAIL_PORT"], timeout=15)
         with server:
             if not cfg["MAIL_USE_SSL"] and cfg["MAIL_USE_TLS"]:
                 server.starttls(context=context)
@@ -47,5 +50,10 @@ def send_mail(to_address, subject, text_body, html_body=None):
             server.send_message(message)
     except (smtplib.SMTPException, OSError) as error:
         # Log the error TYPE only: messages can echo the username, and the password must never be logged.
-        current_app.logger.error("SMTP send failed: %s", type(error).__name__)
+        current_app.logger.error(
+            "SMTP send failed: type=%s, errno=%s, strerror=%s",
+            type(error).__name__,
+            getattr(error, "errno", None),
+            getattr(error, "strerror", None),
+        )
         raise MailSendError(type(error).__name__) from error
