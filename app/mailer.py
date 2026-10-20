@@ -1,59 +1,68 @@
-"""Send email through SMTP (standard library only). Credentials come from .env via config.py."""
-import smtplib
-import ssl
-from email.message import EmailMessage
-from email.utils import formataddr
 
+"""Send email through the Resend HTTPS API."""
+
+import requests
 from flask import current_app
 
 
 class MailNotConfigured(Exception):
-    """SMTP settings are missing in .env."""
+    """Email API settings are missing."""
 
 
 class MailSendError(Exception):
-    """The SMTP server rejected or could not deliver the message."""
+    """The email API rejected or could not deliver the message."""
 
 
 def mail_is_configured():
     cfg = current_app.config
-    return bool(cfg["MAIL_SERVER"] and cfg["MAIL_SENDER"] and cfg["MAIL_USERNAME"] and cfg["MAIL_PASSWORD"])
+    return bool(
+        cfg.get("RESEND_API_KEY")
+        and cfg.get("RESEND_FROM_EMAIL")
+    )
 
 
 def send_mail(to_address, subject, text_body, html_body=None):
-    """Send one email. Raises MailNotConfigured or MailSendError; never returns success silently."""
+    """Send one email through Resend's HTTPS API."""
     cfg = current_app.config
-    if not mail_is_configured():
-        raise MailNotConfigured("SMTP is not configured")
 
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = formataddr(
-        (current_app.config["SYSTEM_NAME"] + " Support", cfg["MAIL_SENDER"]))
-    message["To"] = to_address
-    message.set_content(text_body)
+    if not mail_is_configured():
+        raise MailNotConfigured("Resend is not configured")
+
+    payload = {
+        "from": cfg["RESEND_FROM_EMAIL"],
+        "to": [to_address],
+        "subject": subject,
+        "text": text_body,
+    }
+
     if html_body:
-        message.add_alternative(html_body, subtype="html")
+        payload["html"] = html_body
 
     try:
-        context = ssl.create_default_context()
-        if cfg["MAIL_USE_SSL"]:
-            server = smtplib.SMTP_SSL(
-                cfg["MAIL_SERVER"], cfg["MAIL_PORT"], timeout=15, context=context)
-        else:
-            server = smtplib.SMTP(cfg["MAIL_SERVER"],
-                                  cfg["MAIL_PORT"], timeout=15)
-        with server:
-            if not cfg["MAIL_USE_SSL"] and cfg["MAIL_USE_TLS"]:
-                server.starttls(context=context)
-            server.login(cfg["MAIL_USERNAME"], cfg["MAIL_PASSWORD"])
-            server.send_message(message)
-    except (smtplib.SMTPException, OSError) as error:
-        # Log the error TYPE only: messages can echo the username, and the password must never be logged.
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {cfg['RESEND_API_KEY']}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=15,
+        )
+
+        if not response.ok:
+            current_app.logger.error(
+                "Resend email API failed: HTTP %s",
+                response.status_code,
+            )
+            raise MailSendError(
+                f"Resend API returned HTTP {response.status_code}"
+            )
+
+        current_app.logger.info("Resend accepted an email request")
+
+    except requests.RequestException as error:
         current_app.logger.error(
-            "SMTP send failed: type=%s, errno=%s, strerror=%s",
+            "Resend request failed: %s",
             type(error).__name__,
-            getattr(error, "errno", None),
-            getattr(error, "strerror", None),
         )
         raise MailSendError(type(error).__name__) from error

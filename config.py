@@ -1,4 +1,4 @@
-import os
+﻿import os
 from datetime import timedelta
 from dotenv import load_dotenv
 
@@ -21,6 +21,14 @@ class Config:
     PUBLIC_BASE_URL = os.environ.get(
         "PUBLIC_BASE_URL", "http://127.0.0.1:5000").rstrip("/")
 
+
+    # Resend HTTPS API
+    RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+    RESEND_FROM_EMAIL = os.environ.get(
+        "RESEND_FROM_EMAIL",
+        "SCMOVS Support <onboarding@resend.dev>"
+    )
+	
     DATABASE_HOST = os.environ.get("DATABASE_HOST", "localhost")
     DATABASE_PORT = int(os.environ.get("DATABASE_PORT", "3306"))
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "scmovs")
@@ -62,3 +70,4 @@ class Config:
     RESET_MAX_PER_IP = int(os.environ.get("RESET_MAX_PER_IP", "5"))             # per 15 minutes
     RESET_MAX_PER_ACCOUNT = int(os.environ.get("RESET_MAX_PER_ACCOUNT", "3"))   # per hour
     MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
