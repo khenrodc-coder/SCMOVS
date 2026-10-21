@@ -73,12 +73,18 @@ def _credentials_file():
             pass
 
 
+
 def _connection_args(tool_setting, option_file):
     cfg = current_app.config
     # --defaults-extra-file must be the first option
-    return [cfg[tool_setting], f"--defaults-extra-file={option_file}",
-            f"--host={cfg['DATABASE_HOST']}", f"--port={cfg['DATABASE_PORT']}", "--default-character-set=utf8mb4"]
-
+    return [
+        cfg[tool_setting],
+        f"--defaults-extra-file={option_file}",
+        f"--host={cfg['DATABASE_HOST']}",
+        f"--port={cfg['DATABASE_PORT']}",
+        "--default-character-set=utf8mb4",
+        "--disable-ssl-verify-server-cert",
+    ]
 
 def _clean_error(text):
     """Short, safe version of a tool's error output (never contains the password)."""
