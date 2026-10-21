@@ -9,6 +9,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
+os.environ["AUTO_CLOSE_THREAD"] = "false"      # tests call the closer directly; no background thread
 from app import create_app  # noqa: E402
 
 PASS = FAIL = 0
@@ -74,12 +75,24 @@ def login(client, username, password):
     return r.status_code in (302, 303)
 
 
-def ajax_post(client, url, data=None, files=None):
-    """POST like modal.js does: fetch headers + CSRF token taken from a page's meta tag."""
+# Valid address / birthday / contact number. Forms that now require them get these unless a test opts out.
+PERSONAL = {"birthdate": "2008-05-14", "contact_number": "09171234567", "barangay": "Sta. Rosa",
+            "purok_street": "Purok 3", "city_municipality": "Cabanatuan City"}
+_PERSONAL_URL = re.compile(r"^/(super-admin/users/new|super-admin/users/\d+/edit|students/new|students/\d+/edit|profile/edit)$")
+
+
+def ajax_post(client, url, data=None, files=None, personal=True):
+    """POST like modal.js does: fetch headers + CSRF token taken from a page's meta tag.
+
+    personal=True adds valid personal details to the forms that require them (only keys the test did not set).
+    """
     page = client.get("/dashboard", follow_redirects=True).get_data(as_text=True)
     token = csrf_from(page) or csrf_from(client.get("/login").get_data(as_text=True))
     headers = {"X-Requested-With": "fetch", "X-CSRFToken": token}
     payload = dict(data or {})
+    if personal and _PERSONAL_URL.match(url):
+        for key, value in PERSONAL.items():
+            payload.setdefault(key, value)
     if files:
         payload.update(files)
     return client.post(url, data=payload, headers=headers, content_type="multipart/form-data")

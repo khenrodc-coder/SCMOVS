@@ -19,8 +19,10 @@ SORT_COLUMNS = {
 }
 
 # Students are created together with their student record (4B / Phase 5), not here.
-NEW_USER_ROLES = ("super_admin", "school_admin", "council_officer")
-STAFF_ROLES = ("super_admin", "school_admin", "council_officer")
+# New accounts can be School Admin, Council Officer or Student. Super Admin is not offered: that account is not
+# created from this screen (and nobody can be promoted to it here).
+NEW_USER_ROLES = ("school_admin", "council_officer", "student")
+STAFF_ROLES = ("school_admin", "council_officer")
 STUDENT_LINKED_ROLES = ("student", "council_officer")
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{3,50}$")
@@ -187,6 +189,8 @@ def allowed_roles_for(has_student):
 def get_user(user_id):
     return fetch_one(
         "SELECT u.id, u.username, u.email, u.full_name, u.first_name, u.middle_name, u.last_name, u.photo_path, u.is_active, "
+        "       u.barangay, u.purok_street, u.city_municipality, u.province, u.contact_number, "
+        "       DATE_FORMAT(u.birthdate, '%Y-%m-%d') AS birthdate, "
         "       r.name AS role, r.display_name AS role_display, "
         "       (SELECT COUNT(*) FROM students s WHERE s.user_id = u.id) > 0 AS has_student, "
         "       (SELECT s.student_number FROM students s WHERE s.user_id = u.id) AS student_number, "
@@ -280,8 +284,7 @@ def validate_user_fields(form, allowed_roles, user_id=None, check_role=True, stu
     student_number is passed for accounts that belong to a student record: their email must then be
     <Student ID>@holycross.edu.ph. Administrative accounts only need a valid, unique email.
     """
-    errors = validate_names(
-        form["first_name"], form["middle_name"], form["last_name"])
+    errors = validate_names(form["first_name"], form["middle_name"], form["last_name"])
 
     if user_id is None:
         username = form["username"]
@@ -294,8 +297,7 @@ def validate_user_fields(form, allowed_roles, user_id=None, check_role=True, stu
     if student_number and STUDENT_ID_RE.fullmatch(student_number):
         problem = validate_student_email(email, student_number)
     else:
-        # staff accounts (and legacy non-8-digit student numbers)
-        problem = validate_email_format(email)
+        problem = validate_email_format(email)          # staff accounts (and legacy non-8-digit student numbers)
     if problem:
         errors["email"] = problem
     elif fetch_one("SELECT id FROM users WHERE email = %s AND id <> %s", (email, user_id or 0)):
@@ -326,13 +328,15 @@ def create_user(form, password_hash, actor_id):
     try:
         cursor.execute(
             "INSERT INTO users (username, email, password_hash, full_name, first_name, middle_name, last_name, "
-            "role_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)",
+            "barangay, purok_street, city_municipality, birthdate, contact_number, "
+            "role_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)",
             (form["username"], form["email"], password_hash, form["full_name"],
-             form["first_name"], form["middle_name"] or None, form["last_name"], role_id),
+             form["first_name"], form["middle_name"] or None, form["last_name"],
+             form["barangay"], form["purok_street"], form["city_municipality"], form["birthdate"], form["contact_number"], role_id),
         )
         new_id = cursor.lastrowid
         log_action(actor_id, "user_created", "users",
-                   f"Created {role_display_name} account '{form['username']}'",
+                 f"Created {role_display_name} account '{form['username']}'",
                    affected_record=f"user:{new_id}", commit=False)
         db.commit()
         return new_id
@@ -350,9 +354,11 @@ def update_user(user, form, actor_id):
     try:
         cursor.execute(
             "UPDATE users SET full_name = %s, first_name = %s, middle_name = %s, last_name = %s, email = %s, "
+            "barangay = %s, purok_street = %s, city_municipality = %s, birthdate = %s, contact_number = %s, "
             "role_id = (SELECT id FROM roles WHERE name = %s) WHERE id = %s",
             (form["full_name"], form["first_name"], form["middle_name"] or None, form["last_name"],
-             form["email"], form["role"], user["id"]),
+             form["email"], form["barangay"], form["purok_street"], form["city_municipality"], form["birthdate"],
+             form["contact_number"], form["role"], user["id"]),
         )
         if user["student_number"]:        # keep the student record's name in step with the account
             cursor.execute("UPDATE students SET first_name = %s, middle_name = %s, last_name = %s WHERE user_id = %s",

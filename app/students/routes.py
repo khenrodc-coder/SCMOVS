@@ -7,7 +7,7 @@ from app.auth import recovery
 from app.auth.services import is_safe_next
 from app.mailer import MailNotConfigured, MailSendError
 from app.modal_utils import json_errors, json_ok, wants_json
-from app.validators import clean, normalize_email
+from app.validators import PERSONAL_FIELDS, clean, normalize_email, read_personal
 from app.students import services
 
 students_bp = Blueprint("students", __name__, url_prefix="/students")
@@ -30,6 +30,7 @@ def _read_form():
     form["student_number"] = request.form.get("student_number", "").strip()      # never altered: validated as typed
     form["email"] = normalize_email(request.form.get("email"))
     form["section"] = request.form.get("section", "").strip()
+    form.update(read_personal(request.form))          # birthday, contact number, address
     return form
 
 
@@ -90,7 +91,7 @@ def create():
     if request.method == "GET":
         if not wants_json():
             return redirect(url_for("students.list_page"))
-        return _form_fragment("create", {key: "" for key in FORM_FIELDS})
+        return _form_fragment("create", {key: "" for key in FORM_FIELDS + PERSONAL_FIELDS})
 
     form = _read_form()
     errors = services.validate_student(form)
@@ -122,6 +123,9 @@ def edit(student_id):
         form = {"student_number": student["student_number"], "first_name": student["first_name"],
                 "middle_name": student["middle_name"] or "", "last_name": student["last_name"],
                 "email": student["email"] or "",
+                "barangay": student["barangay"] or "", "purok_street": student["purok_street"] or "",
+                "city_municipality": student["city_municipality"] or "", "birthdate": student["birthdate"] or "",
+                "contact_number": student["contact_number"] or "",
                 "department_id": str(student["department_id"]), "year_level": student["year_level"],
                 "section": student["section"], "school_year_id": str(student["school_year_id"])}
         return _form_fragment("edit", form, student)

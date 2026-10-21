@@ -14,7 +14,7 @@ def make_blueprint(cfg):
     # Officers need the "submit" permission, admins the "approve" permission. Either may open the pages;
     # what each person may DO is checked again for every action in services.check_actor().
     view_access = access_any(ROLES, (cfg["submit_perm"], cfg["approve_perm"]))
-    write_access = access_required(("council_officer",), cfg["submit_perm"])
+    write_access = access_required(("council_officer", "super_admin"), cfg["submit_perm"])
 
     def get_or_404(item_id):
         # None also when the item belongs to another council
@@ -35,14 +35,14 @@ def make_blueprint(cfg):
         data = services.list_items(cfg, request.args, g.user)
         return render_template("proposals/list.html", cfg=cfg, filters=data["base_filters"], statuses=cfg["statuses"],
                                options=services.get_filter_options(g.user), is_admin=services.is_admin(g.user),
-                               can_create=g.user["role"] == "council_officer", **data)
+                               can_create=g.user["role"] in ("council_officer", "super_admin"), **data)
 
     # -------------------------------------------------------------- create
 
     @bp.route("/new", methods=["GET", "POST"])
     @write_access
     def create():
-        councils = services.my_councils(g.user["id"])
+        councils = services.writable_councils(g.user)
         if not councils:
             message = "You are not an active officer of any council, so you cannot create proposals."
             if wants_json():

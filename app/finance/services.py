@@ -15,7 +15,7 @@ from app.audit.services import log_action
 from app.auth.services import has_permission
 from app.db import fetch_all, fetch_one, get_db
 from app.documents import services as documents
-from app.proposals.services import is_admin, user_scope
+from app.proposals.services import acts_in_council, is_admin, user_scope, writable_councils
 from app.settings.services import get_bool
 from app.utils import escape_like, get_page, to_int
 
@@ -71,7 +71,7 @@ def parse_amount(text):
 
 def eligible_activities(user):
     """Approved events/projects of the officer's councils: the only things money can be requested for."""
-    scope = user_scope(user)
+    scope = [c["id"] for c in writable_councils(user)]      # officer: own councils. Super Admin: every active council
     if not scope:
         return []
     marks = ", ".join(["%s"] * len(scope))
@@ -116,9 +116,8 @@ def _scope_sql(user):
 def check_actor(cfg, user, item, action):
     """Return an error message if this user may not do this action on this item, else None."""
     who = ACTIONS[action][2]
-    scope = user_scope(user)
     if who == "owner":
-        if (user["id"] != item[cfg["owner_col"]] or scope is None or item["council_id"] not in scope
+        if (user["id"] != item[cfg["owner_col"]] or not acts_in_council(user, item["council_id"])
                 or not has_permission(cfg["submit_perm"])):
             return f"Only the officer who wrote this {cfg['label'].lower()} can do that."
     else:
@@ -130,8 +129,7 @@ def check_actor(cfg, user, item, action):
 
 
 def can_edit(cfg, user, item):
-    scope = user_scope(user)
-    return (item["status"] in EDITABLE_STATUSES and scope is not None and item["council_id"] in scope
+    return (item["status"] in EDITABLE_STATUSES and acts_in_council(user, item["council_id"])
             and user["id"] == item[cfg["owner_col"]] and has_permission(cfg["submit_perm"]))
 
 

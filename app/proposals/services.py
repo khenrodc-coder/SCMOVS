@@ -72,6 +72,25 @@ def my_councils(user_id):
                      "WHERE co.user_id = %s AND co.is_active = 1 AND c.status = 'active' ORDER BY c.name", (user_id,))
 
 
+def acts_in_council(user, council_id):
+    """May this user WORK in this council (write proposals, start/complete projects)?
+
+    A council officer: only in the councils they belong to. A Super Admin: in any ACTIVE council.
+    (Being allowed to work is not being allowed to approve: nobody can review their own proposal.)
+    """
+    if user["role"] == "super_admin":
+        return fetch_one("SELECT id FROM councils WHERE id = %s AND status = 'active'", (council_id,)) is not None
+    scope = user_scope(user)
+    return scope is not None and council_id in scope
+
+
+def writable_councils(user):
+    """Councils the user can write in: an officer's own councils, or every active council for a Super Admin."""
+    if user["role"] == "super_admin":
+        return fetch_all("SELECT id, name FROM councils WHERE status = 'active' ORDER BY name")
+    return my_councils(user["id"])
+
+
 def _scope_sql(user, alias="t"):
     scope = user_scope(user)
     if scope is None:
@@ -89,8 +108,7 @@ def check_actor(cfg, user, item, action):
         return None if has_permission(cfg["approve_perm"]) and is_admin(user) else "Only an admin can do that."
 
     who = ACTIONS[cfg["kind"]][action][2]
-    scope = user_scope(user)
-    in_council = scope is not None and item["council_id"] in scope
+    in_council = acts_in_council(user, item["council_id"])
     admin = is_admin(user) and has_permission(cfg["approve_perm"])
 
     if who == "owner":
@@ -111,9 +129,8 @@ def check_actor(cfg, user, item, action):
 
 
 def can_edit(cfg, user, item):
-    scope = user_scope(user)
-    return (not item["is_archived"] and item["status"] in EDITABLE_STATUSES and scope is not None
-            and item["council_id"] in scope and user["id"] == item["submitted_by"]
+    return (not item["is_archived"] and item["status"] in EDITABLE_STATUSES
+            and acts_in_council(user, item["council_id"]) and user["id"] == item["submitted_by"]
             and has_permission(cfg["submit_perm"]))
 
 

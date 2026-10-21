@@ -3,6 +3,9 @@
 The browser repeats these checks for convenience, but THESE are the ones that count.
 """
 import re
+from datetime import date, datetime
+
+from app.locations import PROVINCE, match_place
 
 STUDENT_EMAIL_DOMAIN = "holycross.edu.ph"
 PERSONAL_EMAIL_DOMAIN = "gmail.com"
@@ -99,3 +102,80 @@ def validate_student_email(email, student_id):
         return (f"The email's student number ({local}) does not match the Student ID ({student_id}). "
                 f"It should be {student_email_for(student_id)}, or use a personal @{PERSONAL_EMAIL_DOMAIN} address.")
     return None
+
+
+# ----------------------------------------------------------------- personal details
+# Address (Nueva Ecija), birthday and Philippine mobile number. Used by Users, Students and Profile.
+
+PERSONAL_FIELDS = ("barangay", "purok_street", "city_municipality", "birthdate", "contact_number")
+PLACE_CHARS = set(" .,'-#/()")
+MIN_AGE, MAX_AGE = 5, 120
+PH_MOBILE_RE = re.compile(r"(?:09|\+639|639)([0-9]{9})")
+
+
+def normalize_ph_mobile(text):
+    """'+63 917-123-4567' / '639171234567' / '0917 123 4567' -> '09171234567', or None if it is not a PH mobile number."""
+    compact = re.sub(r"[\s\-()]", "", text or "")
+    match = PH_MOBILE_RE.fullmatch(compact)
+    return "09" + match.group(1) if match else None
+
+
+def _valid_place_text(value, minimum, maximum):
+    return (minimum <= len(value) <= maximum and any(ch.isalnum() for ch in value)
+            and all(ch.isalnum() or ch in PLACE_CHARS for ch in value))
+
+
+def read_personal(form):
+    """Pull the personal-detail fields out of a submitted form (Flask's request.form) and tidy them."""
+    return {
+        "barangay": clean(form.get("barangay")),
+        "purok_street": clean(form.get("purok_street")),
+        "city_municipality": clean(form.get("city_municipality")),
+        "birthdate": (form.get("birthdate") or "").strip(),
+        "contact_number": (form.get("contact_number") or "").strip(),
+    }
+
+
+def validate_personal(data):
+    """Check the personal details. Returns {field: message}. On success the values in `data` are replaced by
+    their clean form (official city spelling, ISO birthdate, contact number as 09XXXXXXXXX)."""
+    errors = {}
+    if not _valid_place_text(data["barangay"], 2, 80):
+        errors["barangay"] = "Enter the barangay (2-80 characters, for example Sta. Rosa)."
+    if not _valid_place_text(data["purok_street"], 2, 120):
+        errors["purok_street"] = "Enter the purok, street, sitio or subdivision (2-120 characters)."
+    place = match_place(data["city_municipality"])
+    if place is None:
+        errors["city_municipality"] = f"Choose a city or municipality of {PROVINCE}."
+    else:
+        data["city_municipality"] = place
+
+    try:
+        born = datetime.strptime(data["birthdate"], "%Y-%m-%d").date()
+    except ValueError:
+        born = None
+    if born is None:
+        errors["birthdate"] = "Enter a valid birthday."
+    else:
+        today = date.today()
+        age = today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+        if born > today:
+            errors["birthdate"] = "The birthday cannot be in the future."
+        elif age < MIN_AGE or age > MAX_AGE:
+            errors["birthdate"] = f"The age must be between {MIN_AGE} and {MAX_AGE} years."
+        else:
+            data["birthdate"] = born.isoformat()
+
+    number = normalize_ph_mobile(data["contact_number"])
+    if number is None:
+        errors["contact_number"] = "Enter a Philippine mobile number, for example 09171234567 or +639171234567."
+    else:
+        data["contact_number"] = number
+    return errors
+
+
+def format_address(row):
+    """'Purok 3, Brgy. Sta. Rosa, Cabanatuan City, Nueva Ecija' from a row with the address columns (or '')."""
+    parts = [row.get("purok_street"), f"Brgy. {row['barangay']}" if row.get("barangay") else None,
+             row.get("city_municipality"), PROVINCE if row.get("city_municipality") else None]
+    return ", ".join(p for p in parts if p)

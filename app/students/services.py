@@ -4,7 +4,7 @@ from app.admin.services import generate_temp_password, reset_user_password  # no
 from app.audit.services import log_action
 from app.db import fetch_all, fetch_one, get_db
 from app.utils import escape_like, get_page, to_int
-from app.validators import (STUDENT_ID_RE, normalize_email, validate_email_format, validate_names,
+from app.validators import (STUDENT_ID_RE, validate_personal, normalize_email, validate_email_format, validate_names,
                             validate_student_email, validate_student_id)
 
 PER_PAGE = 10
@@ -108,12 +108,10 @@ def list_students(args):
         where.append("s.status = %s")
         params.append(status)
     else:
-        # archived students only show when asked for
-        where.append("s.status <> 'archived'")
+        where.append("s.status <> 'archived'")      # archived students only show when asked for
     where_sql = "WHERE " + " AND ".join(where)
 
-    total = fetch_one("SELECT COUNT(*) AS n FROM students s " +
-                      where_sql, tuple(params))["n"]
+    total = fetch_one("SELECT COUNT(*) AS n FROM students s " + where_sql, tuple(params))["n"]
     page, pages = get_page(args, total, PER_PAGE)
 
     order_sql = SORT_COLUMNS[sort].format(d=direction)
@@ -142,6 +140,8 @@ def get_student(student_id):
         "SELECT s.id, s.user_id, s.student_number, s.first_name, s.middle_name, s.last_name, s.department_id, "
         "       s.year_level, s.section, s.school_year_id, s.status, "
         "       u.username, u.full_name, u.email, u.is_active AS login_enabled, r.name AS user_role, "
+        "       u.barangay, u.purok_street, u.city_municipality, u.contact_number, "
+        "       DATE_FORMAT(u.birthdate, '%Y-%m-%d') AS birthdate, "
         # Only counts rows. It never reads what anyone voted for.
         "       (SELECT COUNT(*) FROM ballots b WHERE b.student_id = s.id) "
         "         + (SELECT COUNT(*) FROM candidates c WHERE c.student_id = s.id) AS election_records, "
@@ -188,8 +188,8 @@ def validate_student(form, student=None):
     else:
         number_for_email = student["student_number"]
 
-    errors.update(validate_names(
-        form["first_name"], form["middle_name"], form["last_name"]))
+    errors.update(validate_names(form["first_name"], form["middle_name"], form["last_name"]))
+    errors.update(validate_personal(form))            # address, birthday, contact number (cleans the values in form)
 
     email = form["email"]
     if STUDENT_ID_RE.fullmatch(number_for_email or ""):
@@ -205,8 +205,7 @@ def validate_student(form, student=None):
     department = None
     department_id = to_int(form["department_id"])
     if department_id is not None:
-        department = fetch_one(
-            "SELECT id, code, is_active FROM departments WHERE id = %s", (department_id,))
+        department = fetch_one("SELECT id, code, is_active FROM departments WHERE id = %s", (department_id,))
     if department is None:
         errors["department_id"] = "Please choose a department."
     elif not department["is_active"] and not (student and student["department_id"] == department["id"]):
@@ -217,8 +216,7 @@ def validate_student(form, student=None):
     if department is not None:
         official = YEAR_LEVELS.get(department["code"])
         if official:
-            match = next(
-                (o for o in official if o.lower() == level.lower()), None)
+            match = next((o for o in official if o.lower() == level.lower()), None)
             if match is None:
                 errors["year_level"] = "Please choose a valid year level for this department."
             else:
@@ -234,8 +232,7 @@ def validate_student(form, student=None):
     year = None
     year_id = to_int(form["school_year_id"])
     if year_id is not None:
-        year = fetch_one(
-            "SELECT id, status FROM school_years WHERE id = %s", (year_id,))
+        year = fetch_one("SELECT id, status FROM school_years WHERE id = %s", (year_id,))
     if year is None:
         errors["school_year_id"] = "Please choose a school year."
     elif year["status"] not in ("active", "upcoming") and not (student and student["school_year_id"] == year["id"]):
@@ -255,9 +252,11 @@ def create_student(form, password_hash, actor_id):
     try:
         cursor.execute(
             "INSERT INTO users (username, email, password_hash, full_name, first_name, middle_name, last_name, "
-            "role_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 1)",
+            "barangay, purok_street, city_municipality, birthdate, contact_number, "
+            "role_id, must_change_password) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 1)",
             (form["student_number"], form["email"], password_hash, build_full_name(form), form["first_name"],
-             form["middle_name"] or None, form["last_name"], role["id"]))
+             form["middle_name"] or None, form["last_name"], form["barangay"], form["purok_street"],
+             form["city_municipality"], form["birthdate"], form["contact_number"], role["id"]))
         user_id = cursor.lastrowid
         cursor.execute(
             "INSERT INTO students (user_id, student_number, first_name, middle_name, last_name, department_id, "
@@ -286,9 +285,11 @@ def update_student(student, form, actor_id):
             "year_level = %s, section = %s, school_year_id = %s WHERE id = %s",
             (form["first_name"], form["middle_name"] or None, form["last_name"], int(form["department_id"]),
              form["year_level"], form["section"], int(form["school_year_id"]), student["id"]))
-        cursor.execute("UPDATE users SET full_name = %s, first_name = %s, middle_name = %s, last_name = %s, email = %s WHERE id = %s",
+        cursor.execute("UPDATE users SET full_name = %s, first_name = %s, middle_name = %s, last_name = %s, email = %s, "
+                       "barangay = %s, purok_street = %s, city_municipality = %s, birthdate = %s, contact_number = %s WHERE id = %s",
                        (build_full_name(form), form["first_name"], form["middle_name"] or None, form["last_name"],
-                        form["email"], student["user_id"]))
+                        form["email"], form["barangay"], form["purok_street"], form["city_municipality"],
+                        form["birthdate"], form["contact_number"], student["user_id"]))
         log_action(actor_id, "student_updated", "students", f"Updated student {student['student_number']}",
                    affected_record=f"student:{student['id']}", commit=False)
         db.commit()
@@ -344,5 +345,4 @@ def change_status(student, new_status, actor_id):
 
 def reset_student_password(student, password_hash, actor_id):
     """Reuses the Phase 4A reset: new hashed password, forced change, lockout cleared."""
-    reset_user_password(
-        {"id": student["user_id"], "username": student["username"]}, password_hash, actor_id)
+    reset_user_password({"id": student["user_id"], "username": student["username"]}, password_hash, actor_id)

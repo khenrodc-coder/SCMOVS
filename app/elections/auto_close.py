@@ -1,0 +1,88 @@
+"""Close elections automatically when their end time passes.
+
+Three safety nets, all using the SAME code path as the manual "Close voting" button
+(app.elections.services.change_status), so notifications and the audit log work exactly the same:
+
+  1. A background thread (long-running servers: python run.py, gunicorn) checks every AUTO_CLOSE_INTERVAL seconds.
+  2. Every page request also checks (at most once every 20 seconds per process). This is what keeps it working on
+     hosts that do not allow background threads (for example Vercel).
+  3. `python close_due_elections.py` can be run from Windows Task Scheduler or a cron job.
+
+Only elections that are 'open' and whose end time has passed are touched. Voting was already refused after the
+end time; this only brings the status up to date. If two processes try at once, the database lets only one win.
+"""
+import logging
+import os
+import threading
+import time
+
+from app.db import fetch_all
+
+log = logging.getLogger(__name__)
+
+_lock = threading.Lock()
+_last_check = 0.0
+_thread_started = False
+REQUEST_THROTTLE_SECONDS = 20
+
+
+def close_due_elections():
+    """Close every open election whose end time has passed. Returns how many were closed."""
+    from app.elections import services
+
+    due = fetch_all("SELECT id FROM elections WHERE status = 'open' AND end_at <= NOW()")
+    closed = 0
+    for row in due:
+        election = services.get_election(row["id"])
+        if election is None or election["status"] != "open":
+            continue
+        error = services.change_status(election, "close", None, automatic=True)
+        if error is None:
+            closed += 1
+        else:
+            log.info("Election %s was not auto-closed: %s", row["id"], error)
+    return closed
+
+
+def check_on_request():
+    """before_request hook: cheap, throttled, and never allowed to break a page."""
+    from flask import request
+    global _last_check
+    if request.endpoint in (None, "static") or request.path.startswith(("/static/", "/media/")):
+        return None
+    now = time.monotonic()
+    with _lock:
+        if now - _last_check < REQUEST_THROTTLE_SECONDS:
+            return None
+        _last_check = now
+    try:
+        close_due_elections()
+    except Exception:                                    # noqa: BLE001 - a failed check must not break the page
+        log.exception("Automatic election close check failed")
+    return None
+
+
+def start_background_thread(app):
+    """Start the periodic checker once per process (not in tests, not on serverless hosts)."""
+    global _thread_started
+    if _thread_started or not app.config.get("AUTO_CLOSE_THREAD", True):
+        return
+    if os.environ.get("VERCEL") == "1":
+        return
+    if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        return                                            # the Flask debug reloader starts the app twice
+    _thread_started = True
+    interval = max(5, int(app.config.get("AUTO_CLOSE_INTERVAL", 30)))
+    base_url = app.config.get("PUBLIC_BASE_URL") or "http://127.0.0.1:5000"
+
+    def loop():
+        while True:
+            time.sleep(interval)
+            try:
+                # a request context lets url_for() build the notification links, as in a normal click
+                with app.test_request_context("/", base_url=base_url):
+                    close_due_elections()
+            except Exception:                            # noqa: BLE001
+                log.exception("Background election close failed")
+
+    threading.Thread(target=loop, name="scmovs-auto-close", daemon=True).start()

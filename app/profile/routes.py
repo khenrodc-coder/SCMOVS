@@ -9,8 +9,8 @@ from app.auth.decorators import login_required
 from app.auth.services import get_setting_int, validate_new_password
 from app.db import fetch_one, get_db
 from app.modal_utils import json_errors, json_ok
-from app.validators import (build_full_name, clean, normalize_email, validate_email_format, validate_names,
-                            validate_student_email)
+from app.validators import (build_full_name, clean, format_address, normalize_email, read_personal, validate_email_format,
+                            validate_names, validate_personal)
 
 profile_bp = Blueprint("profile", __name__, url_prefix="/profile")
 
@@ -21,6 +21,8 @@ SELF_EDIT_ROLES = ("super_admin", "school_admin")
 def load_profile(user_id):
     return fetch_one(
         "SELECT u.id, u.username, u.email, u.full_name, u.first_name, u.middle_name, u.last_name, u.photo_path, "
+        "       u.barangay, u.purok_street, u.city_municipality, u.province, u.contact_number, "
+        "       DATE_FORMAT(u.birthdate, '%Y-%m-%d') AS birthdate, DATE_FORMAT(u.birthdate, '%M %e, %Y') AS birthdate_text, "
         "       r.name AS role, r.display_name AS role_display, "
         "       s.student_number, d.name AS department "
         "FROM users u JOIN roles r ON r.id = u.role_id "
@@ -38,7 +40,7 @@ def can_edit_profile(profile):
 @login_required
 def page():
     profile = load_profile(g.user["id"])
-    return render_template("profile.html", profile=profile, can_edit=can_edit_profile(profile),
+    return render_template("profile.html", profile=profile, address=format_address(profile), can_edit=can_edit_profile(profile),
                            min_length=get_setting_int("password_min_length", 8))
 
 
@@ -105,6 +107,8 @@ def edit():
     first, middle, last = (clean(request.form.get(k)) for k in ("first_name", "middle_name", "last_name"))
     email = normalize_email(request.form.get("email"))
     errors = validate_names(first, middle, last)
+    personal = read_personal(request.form)
+    errors.update(validate_personal(personal))
     problem = validate_email_format(email)
     if problem:
         errors["email"] = problem
@@ -116,8 +120,11 @@ def edit():
     db = get_db()
     cursor = db.cursor()
     try:
-        cursor.execute("UPDATE users SET first_name = %s, middle_name = %s, last_name = %s, full_name = %s, email = %s "
-                       "WHERE id = %s", (first, middle or None, last, build_full_name(first, middle, last), email, profile["id"]))
+        cursor.execute("UPDATE users SET first_name = %s, middle_name = %s, last_name = %s, full_name = %s, email = %s, "
+                       "barangay = %s, purok_street = %s, city_municipality = %s, birthdate = %s, contact_number = %s "
+                       "WHERE id = %s", (first, middle or None, last, build_full_name(first, middle, last), email,
+                                         personal["barangay"], personal["purok_street"], personal["city_municipality"],
+                                         personal["birthdate"], personal["contact_number"], profile["id"]))
         log_action(g.user["id"], "profile_updated", "profile", "Updated own profile details",
                    affected_record=f"user:{profile['id']}", commit=False)
         db.commit()

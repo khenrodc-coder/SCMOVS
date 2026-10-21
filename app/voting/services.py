@@ -48,6 +48,23 @@ def get_student(user_id):
         "JOIN school_years sy ON sy.id = s.school_year_id WHERE s.user_id = %s", (user_id,))
 
 
+def get_voter(user):
+    """Who is voting: a student (their record) or a Super Admin, or None for anyone else.
+
+    A Super Admin has no student record. They may vote once in ANY election (any department and school year);
+    their ballot is stored with voter_user_id instead of student_id. The database trigger checks the role again.
+    """
+    if user["role"] == "super_admin":
+        return {"id": None, "kind": "admin", "user_id": user["id"], "status": "active", "student_number": None,
+                "first_name": user["full_name"], "last_name": "", "department_id": None, "school_year_id": None,
+                "department": "All departments", "school_year": "All school years", "year_level": "", "section": ""}
+    student = get_student(user["id"])
+    if student is not None:
+        student["kind"] = "student"
+        student["user_id"] = user["id"]
+    return student
+
+
 def get_election(election_id):
     return fetch_one(
         "SELECT e.id, e.name, e.department_id, e.school_year_id, e.status, e.start_at, e.end_at, "
@@ -55,16 +72,21 @@ def get_election(election_id):
         "(NOW() > e.end_at) AS ended FROM elections e WHERE e.id = %s", (election_id,))
 
 
-def my_ballot(election_id, student_id):
-    """Participation only: when did this student submit? (never what they chose)"""
+def my_ballot(election_id, voter):
+    """Participation only: when did this voter submit? (never what they chose)"""
+    if voter.get("kind") == "admin":
+        return fetch_one("SELECT submitted_at FROM ballots WHERE election_id = %s AND voter_user_id = %s",
+                         (election_id, voter["user_id"]))
     return fetch_one("SELECT submitted_at FROM ballots WHERE election_id = %s AND student_id = %s",
-                     (election_id, student_id))
+                     (election_id, voter["id"]))
 
 
 def access_problem(election, student):
     """None when this student may see the election, otherwise 'missing' (404) or ('forbidden', reason) (403)."""
     if election is None or election["status"] not in VISIBLE_STATUSES:
         return "missing"
+    if student.get("kind") == "admin":
+        return None                       # Super Admin: any visible election, once
     if student["status"] != "active":
         return ("forbidden", "Only active students can take part in elections.")
     if election["department_id"] != student["department_id"] or election["school_year_id"] != student["school_year_id"]:
@@ -89,14 +111,22 @@ def voting_state(election, voted):
 
 
 def list_elections(student):
-    """Elections this student is eligible for, with their own voting state. Newest activity first."""
-    rows = fetch_all(
-        "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
-        "(NOW() > e.end_at) AS ended, b.submitted_at AS voted_at "
-        "FROM elections e LEFT JOIN ballots b ON b.election_id = e.id AND b.student_id = %s "
-        "WHERE e.department_id = %s AND e.school_year_id = %s AND e.status IN (" + ", ".join(
-            ["%s"] * len(VISIBLE_STATUSES)) + ") "
-        "ORDER BY e.start_at DESC, e.id DESC", (student["id"], student["department_id"], student["school_year_id"]) + VISIBLE_STATUSES)
+    """Elections this voter may take part in, with their own voting state. Newest activity first."""
+    marks = ", ".join(["%s"] * len(VISIBLE_STATUSES))
+    if student.get("kind") == "admin":
+        rows = fetch_all(
+            "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
+            "(NOW() > e.end_at) AS ended, b.submitted_at AS voted_at, d.name AS department_name "
+            "FROM elections e JOIN departments d ON d.id = e.department_id "
+            "LEFT JOIN ballots b ON b.election_id = e.id AND b.voter_user_id = %s "
+            f"WHERE e.status IN ({marks}) ORDER BY e.start_at DESC, e.id DESC", (student["user_id"],) + VISIBLE_STATUSES)
+    else:
+        rows = fetch_all(
+            "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
+            "(NOW() > e.end_at) AS ended, b.submitted_at AS voted_at "
+            "FROM elections e LEFT JOIN ballots b ON b.election_id = e.id AND b.student_id = %s "
+            f"WHERE e.department_id = %s AND e.school_year_id = %s AND e.status IN ({marks}) "
+            "ORDER BY e.start_at DESC, e.id DESC", (student["id"], student["department_id"], student["school_year_id"]) + VISIBLE_STATUSES)
     priority = {"open": 0, "not_started": 1, "upcoming": 2,
                 "ended": 3, "voted": 4, "closed": 5, "published": 6}
     for row in rows:
@@ -177,7 +207,7 @@ def cast_ballot(user, election_id, form):
 
     Nothing from the review page is trusted: the whole ballot is checked again here.
     """
-    student = get_student(user["id"])
+    student = get_voter(user)
     if student is None:
         return False, "No student record is linked to your account."
     election = get_election(election_id)
@@ -188,7 +218,7 @@ def cast_ballot(user, election_id, form):
         return False, problem[1]
     if voting_state(election, False) != "open":
         return False, "Voting is not open for this election."
-    if my_ballot(election_id, student["id"]):
+    if my_ballot(election_id, student):
         return False, "You have already voted in this election. A ballot cannot be changed."
 
     positions = ballot_positions(election_id)
@@ -201,13 +231,15 @@ def cast_ballot(user, election_id, form):
     db.start_transaction()
     cursor = db.cursor()
     try:
-        cursor.execute(
-            "INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
+        if student.get("kind") == "admin":
+            cursor.execute("INSERT INTO ballots (election_id, voter_user_id) VALUES (%s, %s)", (election_id, student["user_id"]))
+        else:
+            cursor.execute("INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
         ballot_id = cursor.lastrowid
         for position_id, candidate_id in selections.items():
             cursor.execute("INSERT INTO votes (ballot_id, election_id, position_id, candidate_id) VALUES (%s, %s, %s, %s)",
                            (ballot_id, election_id, position_id, candidate_id))
-        # The audit entry says THAT this student voted, never what, and never the ballot id.
+        # The audit entry says THAT this person voted, never what, and never the ballot id.
         log_action(user["id"], "ballot_cast", "voting", f"Cast a ballot in '{election['name']}'",
                    affected_record=f"election:{election_id}", commit=False)
         db.commit()

@@ -29,6 +29,13 @@
                 else if (parts[1] === DOMAIN && !SID.test(parts[0])) errors[name] = "A school email must be 8 digits followed by @" + DOMAIN + ". You can also use a personal @" + PERSONAL + " address.";
                 else if (parts[1] === DOMAIN && SID.test(sid) && parts[0] !== sid) errors[name] = "The email's student number (" + parts[0] + ") does not match the Student ID (" + sid + "). It should be " + sid + "@" + DOMAIN + ", or use a personal @" + PERSONAL + " address.";
             }
+            if (rule === "ph-mobile" && !/^(09|\+639|639)[0-9]{9}$/.test(v.replace(/[\s\-()]/g, ""))) errors[name] = "Enter a Philippine mobile number, for example 09171234567 or +639171234567.";
+            if (rule === "birthdate") {
+                var born = new Date(v + "T00:00:00"), today = new Date(), age = today.getFullYear() - born.getFullYear() - ((today.getMonth() < born.getMonth() || (today.getMonth() === born.getMonth() && today.getDate() < born.getDate())) ? 1 : 0);
+                if (isNaN(born.getTime())) errors[name] = "Enter a valid birthday.";
+                else if (born > today) errors[name] = "The birthday cannot be in the future.";
+                else if (age < 5 || age > 120) errors[name] = "The age must be between 5 and 120 years.";
+            }
             if (rule === "password-match" && v !== val(form, el.getAttribute("data-match"))) errors[name] = "The passwords do not match.";
         });
         return errors;
@@ -92,8 +99,28 @@
                 wrap._isInit = false; window.SCMOVS_initIconSelects(wrap.parentNode); lookup();
             });
         }
-        // Suggest the institutional email as soon as a full Student ID is typed (only while the email is empty)
-        var sidEl = form.querySelector('[data-rule="student-id"]'), mail = form.querySelector('[data-rule="student-email"]');
-        if (sidEl && mail) sidEl.addEventListener("input", function () { if (/^[0-9]{8}$/.test(sidEl.value) && !mail.value) mail.value = sidEl.value + "@" + DOMAIN; });
+        // Birthday cannot be in the future
+        form.querySelectorAll('[data-rule="birthdate"]').forEach(function (el) { el.max = new Date().toISOString().slice(0, 10); });
+
+        // Add User: the Student section appears only for the Student role (and is switched off otherwise, so it is
+        // neither validated nor sent). The email rule becomes the student rule for students.
+        var roleEl = form.querySelector('[name="role"]'), hasSections = form.querySelector("[data-show-role]");
+        if (roleEl && hasSections) {
+            var applyRole = function () {
+                var r = roleEl.value;
+                var toggle = function (sec, on) { sec.hidden = !on; sec.querySelectorAll("input, select, textarea, button").forEach(function (el) { el.disabled = !on; }); };
+                form.querySelectorAll("[data-show-role]").forEach(function (sec) { toggle(sec, sec.getAttribute("data-show-role") === r); });
+                form.querySelectorAll("[data-hide-role]").forEach(function (sec) { toggle(sec, sec.getAttribute("data-hide-role") !== r); });
+                var em = form.querySelector('[name="email"]');
+                if (em) { em.setAttribute("data-rule", r === "student" ? "student-email" : "email"); em.setAttribute("data-match", "student_number"); }
+            };
+            roleEl.addEventListener("change", applyRole); applyRole();
+        }
+
+        // Suggest the school email as soon as a full Student ID is typed (only while the email is empty)
+        var sidEl = form.querySelector('[data-rule="student-id"]'), mail = form.querySelector('[name="email"]');
+        if (sidEl && mail) sidEl.addEventListener("input", function () {
+            if (mail.getAttribute("data-rule") === "student-email" && /^[0-9]{8}$/.test(sidEl.value) && !mail.value) mail.value = sidEl.value + "@" + DOMAIN;
+        });
     };
 })();

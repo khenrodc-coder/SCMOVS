@@ -68,8 +68,9 @@ s, h = modal(co, "/projects/new"); check(s == 200 and "New Project Proposal" in 
 pj = {"council_id": council_id, "title": "Clean-up Drive", "description": "Campus clean-up", "objectives": "Keep campus clean", "start_date": (now + dt.timedelta(days=5)).strftime("%Y-%m-%d"), "end_date": (now + dt.timedelta(days=6)).strftime("%Y-%m-%d")}
 r = ajax_post(co, "/projects/new", dict(pj, end_date="2020-01-01")); check(r.status_code == 422, "project end before start rejected")
 r = ajax_post(co, "/projects/new", pj); check(r.status_code == 200 and "/projects/" in r.get_json()["redirect"], "project saved as draft")
+cs_admin = app.test_client(); login(cs_admin, "schooladmin", "SchoolAdmin@123")
 check(ajax_get(cs, "/events/new").status_code == 403, "student cannot open New Event")
-check(ajax_get(c, "/events/new").status_code == 403, "admins cannot create officer proposals (unchanged rule)")
+check(ajax_get(cs_admin, "/events/new").status_code == 403, "School Admin cannot create officer proposals (unchanged rule)")
 
 # ---------------- BUDGETS / EXPENSES
 s, h = modal(co, "/budgets/new"); check(s == 200 and "No approved activity yet" in h, "no approved activity -> clear explanation modal (no crash)")

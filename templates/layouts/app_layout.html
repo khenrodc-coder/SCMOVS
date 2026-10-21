@@ -120,7 +120,7 @@
     <aside id="sidebar" aria-label="Sidebar"
            class="fixed inset-y-0 left-0 z-40 flex w-60 -translate-x-full flex-col bg-blue-950 text-white shadow-xl transition-transform duration-200 md:sticky md:top-0 md:h-screen md:translate-x-0 md:shadow-none">
         <div class="brand-row flex items-center justify-between gap-2 border-b border-white/10 pr-2">
-            <a href="{{ url_for('dashboard.home') }}" title="{{ system_name }}" class="brand flex min-w-0 items-center gap-3 px-4 py-4">
+            <a href="{{ url_for('dashboard.home') }}" title="{{ system_name }}" class="brand flex min-w-0 items-center gap-2.5 px-4 py-3">
                 <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Holy Cross College seal" class="h-9 w-9 shrink-0 rounded-full bg-white object-contain">
                 <span class="brand-text min-w-0">
                     <span class="block truncate text-sm font-extrabold tracking-wide">{{ system_name }}</span>
@@ -138,7 +138,7 @@
         </div>
 
         <nav class="flex-1 space-y-1 overflow-y-auto px-2 py-3" aria-label="Main navigation">
-            {% if has_permission('voting.cast') and current_user.role in ('student', 'council_officer') %}{{ nav_link(url_for('voting.my_elections'), 'clipboard-document-check', 'My Elections', ep.startswith('voting.')) }}{% endif %}
+            {% if has_permission('voting.cast') and current_user.role in ('student', 'council_officer', 'super_admin') %}{{ nav_link(url_for('voting.my_elections'), 'clipboard-document-check', 'My Elections', ep.startswith('voting.')) }}{% endif %}
             {{ nav_link(url_for('dashboard.home'), 'squares-2x2', 'Dashboard', ep == 'dashboard.home' or ep.endswith('_home')) }}
             {% if has_permission('users.manage') or has_permission('students.view') or has_permission('departments.manage') or has_permission('school_years.manage') %}
             {% call nav_group('people', 'users', 'People &amp; Setup', ep.startswith('admin.user') or ep.startswith('students.') or ep.startswith('departments.') or ep.startswith('school_years.')) %}

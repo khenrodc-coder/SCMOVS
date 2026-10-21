@@ -14,9 +14,10 @@
             {% if can_edit %}<button type="button" data-modal-url="{{ url_for('profile.edit') }}" class="inline-flex min-h-[36px] items-center gap-2 rounded-lg bg-blue-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-200"><i class="fa-solid fa-user-pen"></i>Edit Profile</button>{% endif %}
         </div>
         <dl class="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-            {% for label, value in [('First name', profile.first_name), ('Middle name', profile.middle_name), ('Last name', profile.last_name), ('Username', profile.username), ('Email address', profile.email), ('Role', profile.role_display)] %}
+            {% for label, value in [('First name', profile.first_name), ('Middle name', profile.middle_name), ('Last name', profile.last_name), ('Username', profile.username), ('Email address', profile.email), ('Role', profile.role_display), ('Birthday', profile.birthdate_text), ('Contact no.', profile.contact_number)] %}
             <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ label }}</dt><dd class="mt-0.5 break-words font-medium">{{ value or '—' }}</dd></div>
             {% endfor %}
+            <div class="sm:col-span-2"><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Address</dt><dd class="mt-0.5 break-words font-medium">{{ address or '—' }}</dd></div>
             {% if profile.student_number %}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Student ID</dt><dd class="mt-0.5 font-medium">{{ profile.student_number }}</dd></div>{% endif %}
             {% if profile.department %}<div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Department</dt><dd class="mt-0.5 font-medium">{{ profile.department }}</dd></div>{% endif %}
         </dl>

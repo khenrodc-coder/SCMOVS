@@ -1,4 +1,4 @@
-{% from "components/modal.html" import modal, field, icon_select %}
+{% from "components/modal.html" import modal, field, icon_select, personal_fields with context %}
 {% set create = mode == 'create' %}
 {% set locked = not create and student.election_records > 0 %}
 {% set dept_options = [] %}
@@ -29,6 +29,7 @@
         {{ field('email', 'Email address', form.email, type='email', required=true, maxlength=120,
                  hint='This is an older Student ID that is not 8 digits, so any valid email is accepted.', extra='data-rule="email"') }}
     {% endif %}
+    {{ personal_fields(form) }}
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {{ icon_select('department_id', 'Department', dept_options, form.department_id, required=true, disabled=locked, placeholder='Select a department') }}
         {{ icon_select('school_year_id', 'School year', year_options, form.school_year_id, required=true, disabled=locked, placeholder='Select a school year') }}

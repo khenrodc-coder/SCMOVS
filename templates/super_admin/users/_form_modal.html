@@ -1,12 +1,40 @@
-{% from "components/modal.html" import modal, field, password_field, icon_select %}
+{% from "components/modal.html" import modal, field, password_field, icon_select, personal_fields with context %}
 {% set create = mode == 'create' %}
+{% set dept_options = [] %}{% if departments %}{% for d in departments %}{% set _ = dept_options.append((d.id|string, d.name, 'fa-building-columns')) %}{% endfor %}{% endif %}
+{% set year_options = [] %}{% if school_years %}{% for y in school_years %}{% set _ = year_options.append((y.id|string, y.name, 'fa-calendar-days')) %}{% endfor %}{% endif %}
 {% call modal('Add New User' if create else 'Edit User', 'fa-user-plus' if create else 'fa-user-pen',
               url_for('admin.user_create') if create else url_for('admin.user_edit', user_id=target.id),
               'Create User' if create else 'Save Changes', wide=true,
-              subtitle='Staff account. Student accounts are created from the Students page.' if create else target.username) %}
+              subtitle='Choose the role first: a Student also gets a student record.' if create else target.username) %}
     {% if create %}
-        {{ field('username', 'Username', form.get('username', ''), required=true, maxlength=50, hint='3-50 characters: letters, numbers, dot, underscore, hyphen. Cannot be changed later.', extra='autocomplete="off"') }}
+    <div data-year-map='{{ year_level_map|tojson|forceescape }}' hidden></div>
     {% endif %}
+
+    {% if create %}
+        {{ icon_select('role', 'Role', role_options, form.get('role', ''), required=true, placeholder='Select a role') }}
+        <div data-hide-role="student">
+            {{ field('username', 'Username', form.get('username', ''), required=true, maxlength=50, hint='3-50 characters: letters, numbers, dot, underscore, hyphen. Cannot be changed later.', extra='autocomplete="off"') }}
+        </div>
+        <div data-show-role="student" hidden class="space-y-4">
+            {{ field('student_number', 'Student ID', form.get('student_number', ''), required=true, maxlength=8,
+                     hint='Exactly 8 digits, e.g. 80382024. It is also the username and cannot be changed later.', extra='data-rule="student-id" autocomplete="off"') }}
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {{ icon_select('department_id', 'Department', dept_options, form.get('department_id', ''), required=true, placeholder='Select a department') }}
+                {{ icon_select('school_year_id', 'School year', year_options, form.get('school_year_id', ''), required=true, placeholder='Select a school year') }}
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                    <label for="f_year_level" class="mb-1 block text-sm font-semibold text-slate-700">Year level <span class="text-red-600" aria-hidden="true">*</span></label>
+                    <input id="f_year_level" name="year_level" value="{{ form.get('year_level', '') }}" required maxlength="20" list="year-levels" autocomplete="off"
+                           class="w-full min-h-[40px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200">
+                    <datalist id="year-levels"></datalist>
+                    <p data-error-for="year_level" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
+                </div>
+                {{ field('section', 'Section', form.get('section', ''), required=true, maxlength=30) }}
+            </div>
+        </div>
+    {% endif %}
+
     <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {{ field('first_name', 'First name', form.get('first_name', ''), required=true, maxlength=60, extra='data-rule="name"') }}
         {{ field('middle_name', 'Middle name', form.get('middle_name', ''), maxlength=60, extra='data-rule="name"') }}
@@ -15,15 +43,23 @@
     {% if not create and not form.get('last_name') %}
         <p class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">This older account only had a single name stored. Please enter the missing parts.</p>
     {% endif %}
+
     {% if target and target.student_number %}
         {{ field('email', 'Email address', form.get('email', ''), type='email', required=true, maxlength=120,
                  hint='Student email: ' ~ target.student_number ~ '@holycross.edu.ph, or a personal @gmail.com address.', extra='data-rule="email" autocomplete="off"') }}
     {% else %}
-        {{ field('email', 'Email address', form.get('email', ''), type='email', required=true, maxlength=120, hint='Only @gmail.com or @holycross.edu.ph addresses are accepted.', extra='data-rule="email" autocomplete="off"') }}
+        {{ field('email', 'Email address', form.get('email', ''), type='email', required=true, maxlength=120,
+                 hint='Only @gmail.com or @holycross.edu.ph addresses are accepted.', extra='data-rule="email" data-match="student_number" autocomplete="off"') }}
     {% endif %}
-    {{ icon_select('role', 'Role', role_options, form.get('role', ''), required=true, disabled=editing_self,
-                   hint='You cannot change your own role.' if editing_self else ('This user has a student record, so only Student or Council Officer can be assigned.' if target and target.has_student else ''),
-                   placeholder='Select a role') }}
+
+    {% if not create %}
+        {{ icon_select('role', 'Role', role_options, form.get('role', ''), required=true, disabled=editing_self,
+                       hint='You cannot change your own role.' if editing_self else ('This user has a student record, so only Student or Council Officer can be assigned.' if target and target.has_student else ''),
+                       placeholder='Select a role') }}
+    {% endif %}
+
+    {{ personal_fields(form) }}
+
     {% if create %}
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {{ password_field('password', 'Initial password', hint='Letters and numbers. Changed at first login.') }}

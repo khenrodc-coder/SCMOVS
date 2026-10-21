@@ -404,8 +404,11 @@ def _notify_admins(cursor, election, title, message, link_url):
         (title[:150], message[:500], link_url, title[:150], link_url))
 
 
-def change_status(election, action, actor_id):
-    """Apply one status change. Returns an error message, or None when it worked."""
+def change_status(election, action, actor_id, automatic=False):
+    """Apply one status change. Returns an error message, or None when it worked.
+
+    automatic=True means the system did it (end time reached): actor_id is None and the log says so.
+    """
     allowed_from, new_status = ACTIONS[action]
     if election["status"] not in allowed_from:
         return f"A {election['status']} election cannot be changed this way."
@@ -443,7 +446,8 @@ def change_status(election, action, actor_id):
         if action in ("open", "close"):
             word = "opened" if action == "open" else "closed"
             _notify_admins(cursor, election, f"Voting {word}: {election['name']}"[:150],
-                           f"Voting for '{election['name']}' has {word}.", url_for("elections.detail", election_id=election["id"]))
+                           f"Voting for '{election['name']}' has {word}" + (" automatically because the end time was reached." if automatic else "."),
+                           url_for("elections.detail", election_id=election["id"]))
         if action == "open":
             _notify_eligible_students(cursor, election, "Voting is open",
                                       f"Voting for '{election['name']}' is now open until "
@@ -463,7 +467,8 @@ def change_status(election, action, actor_id):
                            (actor_id, election["id"]))
 
         log_action(actor_id, AUDIT_ACTIONS[action], "elections",
-                   f"Election '{election['name']}': {election['status']} -> {new_status}",
+                   f"Election '{election['name']}': {election['status']} -> {new_status}"
+                   + (" (closed automatically: end time reached)" if automatic else ""),
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
         return None

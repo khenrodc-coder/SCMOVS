@@ -27,6 +27,11 @@ def create_app():
     from app.settings.services import get_branding
     app.before_request(load_current_user)
 
+    # Close elections whose end time has passed (see app/elections/auto_close.py)
+    from app.elections import auto_close
+    app.before_request(auto_close.check_on_request)
+    auto_close.start_background_thread(app)
+
     from app.main.routes import main_bp
     from app.auth.routes import auth_bp
     from app.dashboard.routes import dashboard_bp
@@ -83,6 +88,7 @@ def create_app():
     app.register_blueprint(settings_bp)
     app.register_blueprint(backups_bp)
 
+    from app.locations import PLACES, PROVINCE
     from app.media import media_bp, photo_url
     from app.profile.routes import profile_bp
     app.register_blueprint(media_bp)
@@ -120,6 +126,8 @@ def create_app():
             "current_user": g.get("user"),
             "has_permission": has_permission,
             "photo_url": photo_url,
+            "ne_places": [(place, place, "fa-location-dot") for place in PLACES],
+            "ne_province": PROVINCE,
         }
 
     @app.after_request

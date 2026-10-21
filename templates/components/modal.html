@@ -69,7 +69,7 @@
 <div>
     <label id="lbl_{{ name }}" class="mb-1 block text-sm font-semibold text-slate-700">{{ label }}{% if required %} <span class="text-red-600" aria-hidden="true">*</span>{% endif %}</label>
     <div class="icon-select relative" data-icon-select>
-        <input type="hidden" name="{{ name }}" value="{{ selected }}" {{ 'disabled' if disabled }}>
+        <input type="hidden" name="{{ name }}" value="{{ selected }}" {{ 'required' if required }} {{ 'disabled' if disabled }}>
         <button type="button" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="lbl_{{ name }}" {{ 'disabled' if disabled }}
                 class="flex w-full min-h-[40px] items-center justify-between gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-left text-sm focus:border-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-200 disabled:bg-slate-100">
             <span class="flex min-w-0 items-center gap-2"><i data-is-icon class="fa-solid w-4 text-center text-slate-500" aria-hidden="true"></i><span data-is-label class="truncate" data-placeholder="{{ placeholder }}"></span></span>
@@ -105,4 +105,23 @@
     {% if hint %}<p class="mt-1 text-xs text-slate-500">{{ hint }}</p>{% endif %}
     <p data-error-for="{{ name }}" hidden role="alert" class="mt-1 text-xs font-medium text-red-700"></p>
 </div>
+{% endmacro %}
+
+{# Birthday, Philippine contact number and the address (Nueva Ecija). `form` holds the current values. #}
+{% macro personal_fields(form) %}
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    {{ field('birthdate', 'Birthday', form.get('birthdate', '') or '', type='date', required=true, extra='data-rule="birthdate"') }}
+    {{ field('contact_number', 'Contact no. (Philippines)', form.get('contact_number', '') or '', type='tel', required=true, maxlength=20,
+             placeholder='09171234567', hint='Mobile number, for example 09171234567 or +639171234567.', extra='data-rule="ph-mobile" inputmode="tel" autocomplete="off"') }}
+</div>
+<fieldset class="rounded-lg border border-slate-200 p-3">
+    <legend class="px-1 text-sm font-semibold text-slate-700"><i class="fa-solid fa-location-dot mr-1 text-blue-900"></i>Address</legend>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {{ field('barangay', 'Barangay', form.get('barangay', '') or '', required=true, maxlength=80, placeholder='Brgy. name') }}
+        {{ field('purok_street', 'Purok / Street / Sitio', form.get('purok_street', '') or '', required=true, maxlength=120, placeholder='Purok 3 or Rizal St.') }}
+        {{ icon_select('city_municipality', 'City / Municipality', ne_places, form.get('city_municipality', '') or '', required=true, placeholder='Select city or municipality') }}
+        <div><span class="mb-1 block text-sm font-semibold text-slate-700">Province</span>
+            <p class="min-h-[40px] rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">{{ ne_province }}</p></div>
+    </div>
+</fieldset>
 {% endmacro %}

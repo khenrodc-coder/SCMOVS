@@ -6,9 +6,9 @@ from app.voting import services
 
 voting_bp = Blueprint("voting", __name__, url_prefix="/vote")
 
-# Server-side: logged in -> role is student (or a council officer, who is also a student) -> holds
-# "voting.cast". Staff accounts without a student record are stopped in load() below.
-access = access_required(("student", "council_officer"), "voting.cast")
+# Server-side: logged in -> role is student, council officer (also a student) or Super Admin -> holds
+# "voting.cast". Other accounts, and officers without a student record, are stopped in load() below.
+access = access_required(("student", "council_officer", "super_admin"), "voting.cast")
 
 
 @voting_bp.after_request
@@ -24,7 +24,7 @@ def load(election_id):
 
     A student asking for another department's election (by typing the URL) gets 403.
     """
-    student = services.get_student(g.user["id"])
+    student = services.get_voter(g.user)
     if student is None:
         abort(403, description="No student record is linked to your account.")
     election = services.get_election(election_id)
@@ -39,7 +39,7 @@ def load(election_id):
 @voting_bp.route("")
 @access
 def my_elections():
-    student = services.get_student(g.user["id"])
+    student = services.get_voter(g.user)
     elections = services.list_elections(student) if student else []
     return render_template("voting/list.html", student=student, elections=elections)
 
@@ -48,7 +48,7 @@ def my_elections():
 @access
 def ballot(election_id):
     student, election = load(election_id)
-    voted = services.my_ballot(election_id, student["id"])
+    voted = services.my_ballot(election_id, student)
     if voted:
         return redirect(url_for("voting.done", election_id=election_id))
     state = services.voting_state(election, False)
@@ -66,7 +66,7 @@ def ballot(election_id):
 @access
 def review(election_id):
     student, election = load(election_id)
-    if services.my_ballot(election_id, student["id"]):
+    if services.my_ballot(election_id, student):
         return redirect(url_for("voting.done", election_id=election_id))
     if services.voting_state(election, False) != "open":
         flash("Voting is not open for this election.", "error")
@@ -99,7 +99,7 @@ def cast(election_id):
 @access
 def done(election_id):
     student, election = load(election_id)
-    voted = services.my_ballot(election_id, student["id"])
+    voted = services.my_ballot(election_id, student)
     if not voted:
         return redirect(url_for("voting.ballot", election_id=election_id))
     return render_template("voting/done.html", election=election, voted_at=voted["submitted_at"])

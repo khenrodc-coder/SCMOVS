@@ -10,7 +10,8 @@ from app.auth import recovery
 from app.auth.decorators import permission_required, role_required
 from app.mailer import MailNotConfigured, MailSendError
 from app.modal_utils import json_errors, json_ok, wants_json
-from app.validators import build_full_name, clean, normalize_email
+from app.students import services as student_services
+from app.validators import build_full_name, clean, normalize_email, read_personal, validate_personal
 from app.auth.services import is_safe_next, validate_new_password
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/super-admin")
@@ -65,7 +66,15 @@ def _read_user_form(with_username):
     if with_username:
         form["username"] = request.form.get("username", "").strip()
     form["full_name"] = build_full_name(form["first_name"], form["middle_name"], form["last_name"])
+    form.update(read_personal(request.form))          # birthday, contact number, address
     return form
+
+
+def _student_fields_context():
+    """Dropdown data for the Student part of the Add User form (the same data the Students page uses)."""
+    departments = student_services.get_active_departments()
+    return dict(departments=departments, school_years=student_services.get_assignable_school_years(),
+                year_level_map=student_services.year_level_map(departments))
 
 
 @admin_bp.route("/users/new", methods=["GET", "POST"])
@@ -76,13 +85,23 @@ def user_create():
         if not wants_json():
             return redirect(url_for("admin.users_list"))
         return render_template("super_admin/users/_form_modal.html", mode="create", form={}, target=None,
-                               editing_self=False, role_options=_role_choices(services.NEW_USER_ROLES))
+                               editing_self=False, role_options=_role_choices(services.NEW_USER_ROLES),
+                               **_student_fields_context())
 
     form = _read_user_form(with_username=True)
     password = request.form.get("password", "")
     confirm = request.form.get("confirm_password", "")
+    is_student = form["role"] == "student"
 
-    errors = services.validate_user_fields(form, services.NEW_USER_ROLES)
+    if is_student:
+        # A student account is a login PLUS a student record. Same rules as the Students page: 8-digit Student ID
+        # (which is also the username), school email or personal Gmail, department, year level, section, school year.
+        for key in ("student_number", "department_id", "year_level", "section", "school_year_id"):
+            form[key] = request.form.get(key, "").strip()
+        errors = student_services.validate_student(form)
+    else:
+        errors = services.validate_user_fields(form, services.NEW_USER_ROLES)
+        errors.update(validate_personal(form))
     password_error = validate_new_password(password)
     if password_error:
         errors["password"] = password_error
@@ -90,6 +109,13 @@ def user_create():
         errors["confirm_password"] = "The passwords do not match."
     if errors:
         return json_errors(errors)
+
+    if is_student:
+        try:
+            student_services.create_student(form, generate_password_hash(password), g.user["id"])
+        except mysql.connector.IntegrityError:
+            return json_errors({"student_number": "That Student ID or email already exists."})
+        return json_ok(f"Student account {form['student_number']} was created. They must change the password at first login.")
 
     try:
         services.create_user(form, generate_password_hash(password), g.user["id"])
@@ -117,7 +143,8 @@ def user_edit(user_id):
         if not wants_json():
             return redirect(url_for("admin.users_list"))
         return render_template("super_admin/users/_form_modal.html", mode="edit", form=user, target=user,
-                               editing_self=editing_self, role_options=_role_choices(display_names))
+                               editing_self=editing_self, role_options=_role_choices(display_names),
+                               **_student_fields_context())
 
     form = _read_user_form(with_username=False)
     if editing_self:
@@ -126,6 +153,7 @@ def user_edit(user_id):
 
     errors = services.validate_user_fields(form, allowed, user_id=user["id"], check_role=role_changed,
                                            student_number=user["student_number"])
+    errors.update(validate_personal(form))
     if (role_changed and not errors and user["active_assignments"] and form["role"] != "council_officer"):
         errors["role"] = "This officer has an active council assignment. End the assignment before changing the role."
     if errors:
