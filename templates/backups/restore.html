@@ -1,0 +1,47 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/icons.html" import password_toggle %}
+{% block title %}Restore Backup{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('backups.list_page') }}" class="text-sm text-blue-700 hover:underline">&larr; Back to backups</a>
+<h1 class="mt-2 text-2xl font-bold text-red-800">Restore a backup</h1>
+
+<div class="mt-4 max-w-xl bg-red-50 border border-red-300 text-red-900 rounded-xl p-4 text-sm space-y-2">
+    <p><strong>This replaces the whole database</strong> with the contents of this backup:</p>
+    <p class="font-mono text-xs break-all">{{ backup.filename }}</p>
+    <p>Created {{ backup.created_at|dt }}. Anything changed after that moment (votes, students, approvals, audit entries) will be gone from the live system.</p>
+    <ul class="list-disc pl-5">
+        <li>A safety backup of the current data is made first.</li>
+        <li>You will be logged out and must log in again.</li>
+        <li>Restoring is blocked while an election is open.</li>
+        <li>Do this when nobody else is using the system.</li>
+    </ul>
+</div>
+
+{% if error %}
+<div class="mt-4 max-w-xl bg-red-50 border border-red-300 border-l-4 border-l-red-500 text-red-900 rounded-lg px-4 py-3 text-sm" role="alert">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('backups.restore', backup_id=backup.id) }}"
+      class="mt-4 max-w-xl rounded-xl border border-slate-200 bg-white shadow-sm p-5 space-y-4"
+      data-confirm="Last chance: replace the whole database with this backup?">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+        <label for="password" class="block text-sm font-semibold text-slate-700 mb-1">Your password</label>
+        <div class="relative">
+        <input type="password" id="password" name="password" required maxlength="128" autocomplete="current-password"
+               class="pr-11 w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+        {{ password_toggle('password') }}
+    </div>
+    </div>
+    <div>
+        <label for="confirm_word" class="block text-sm font-semibold text-slate-700 mb-1">Type <strong>{{ confirm_word }}</strong> to confirm</label>
+        <input type="text" id="confirm_word" name="confirm_word" required maxlength="20" autocomplete="off"
+               class="w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-700 focus:ring-4 focus:ring-blue-200 bg-white min-h-[44px]">
+    </div>
+    <div class="flex gap-2">
+        <button type="submit" class="bg-red-700 hover:bg-red-600 text-white font-semibold px-5 py-2 rounded-lg">Restore this backup</button>
+        <a href="{{ url_for('backups.list_page') }}" class="border border-slate-300 bg-white font-semibold text-slate-700 hover:bg-slate-50 hover:border-slate-400 inline-flex min-h-[44px] items-center justify-center gap-2 shadow-sm transition focus:outline-none focus:ring-4 focus:ring-blue-200 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+{% endblock %}

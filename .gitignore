@@ -25,3 +25,7 @@ backups/
 
 # Local logs
 *.log
+
+# Keep backup page templates in Git
+!templates/backups/
+!templates/backups/**
