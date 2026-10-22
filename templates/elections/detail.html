@@ -38,6 +38,8 @@
     <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-sm md:col-span-2">
         <h2 class="font-semibold mb-2">Voting period</h2>
         <p>{{ election.start_at|dt }} <span class="text-slate-500">to</span> {{ election.end_at|dt }}</p>
+        {% if election.status == 'scheduled' %}<p class="mt-1 text-xs text-slate-500"><i class="fa-solid fa-clock mr-1"></i>Voting opens automatically at the start time and closes automatically at the end time.</p>
+        {% elif election.status == 'open' and not election.overdue %}<p class="mt-1 text-xs text-slate-500"><i class="fa-solid fa-clock mr-1"></i>Voting closes automatically at the end time.</p>{% endif %}
         <h2 class="font-semibold mt-4 mb-2">Participation</h2>
         <p><span class="font-num font-semibold">{{ participation.cast }}</span> of <span class="font-num font-semibold">{{ participation.eligible }}</span> eligible voters have voted (<span class="font-num font-semibold">{{ participation.percent }}%</span>).</p>
         <p class="mt-1 text-xs text-slate-500">Only counts are shown here. Individual votes are never displayed.</p>

@@ -402,12 +402,37 @@ def _notify_admins(cursor, election, title, message, link_url):
         "WHERE r.name IN ('super_admin', 'school_admin') AND u.is_active = 1 "
         "AND NOT EXISTS (SELECT 1 FROM notifications n WHERE n.user_id = u.id AND n.title = %s AND n.link_url = %s)",
         (title[:150], message[:500], link_url, title[:150], link_url))
+    return cursor.rowcount            # 0 when an identical notice already exists
+
+
+def report_open_problem(election, reason):
+    """The scheduled start time arrived but the election could not open (or its period passed unopened).
+
+    Super Admins and School Admins get ONE notice per election (and one audit entry), however many times the system
+    re-checks. The system keeps retrying, so fixing the problem lets the election open by itself.
+    """
+    db = get_db()
+    cursor = db.cursor()
+    try:
+        created = _notify_admins(cursor, election, f"Election not opened: {election['name']}"[:150],
+                                 f"'{election['name']}' could not open automatically. {reason}"[:500],
+                                 url_for("elections.detail", election_id=election["id"]))
+        if created:
+            log_action(None, "election_open_blocked", "elections",
+                       f"Election '{election['name']}' could not open automatically: {reason}"[:500],
+                       affected_record=f"election:{election['id']}", commit=False)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        cursor.close()
 
 
 def change_status(election, action, actor_id, automatic=False):
     """Apply one status change. Returns an error message, or None when it worked.
 
-    automatic=True means the system did it (end time reached): actor_id is None and the log says so.
+    automatic=True means the system did it (scheduled start or end time reached): actor_id is None and the log says so.
     """
     allowed_from, new_status = ACTIONS[action]
     if election["status"] not in allowed_from:
@@ -446,7 +471,7 @@ def change_status(election, action, actor_id, automatic=False):
         if action in ("open", "close"):
             word = "opened" if action == "open" else "closed"
             _notify_admins(cursor, election, f"Voting {word}: {election['name']}"[:150],
-                           f"Voting for '{election['name']}' has {word}" + (" automatically because the end time was reached." if automatic else "."),
+                           f"Voting for '{election['name']}' has {word}" + ((" automatically because the scheduled start time was reached." if action == "open" else " automatically because the end time was reached.") if automatic else "."),
                            url_for("elections.detail", election_id=election["id"]))
         if action == "open":
             _notify_eligible_students(cursor, election, "Voting is open",
@@ -468,7 +493,7 @@ def change_status(election, action, actor_id, automatic=False):
 
         log_action(actor_id, AUDIT_ACTIONS[action], "elections",
                    f"Election '{election['name']}': {election['status']} -> {new_status}"
-                   + (" (closed automatically: end time reached)" if automatic else ""),
+                   + ((" (opened automatically: scheduled start time reached)" if action == "open" else " (closed automatically: end time reached)") if automatic else ""),
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
         return None
