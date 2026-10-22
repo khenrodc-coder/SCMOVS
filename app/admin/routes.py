@@ -6,6 +6,7 @@ from flask import (Blueprint, abort, flash, g, jsonify, redirect,
 from werkzeug.security import generate_password_hash
 
 from app.admin import services
+from app.accounts import email_initial_password, mask_email
 from app.auth import recovery
 from app.auth.decorators import permission_required, role_required
 from app.mailer import MailNotConfigured, MailSendError
@@ -89,8 +90,6 @@ def user_create():
                                **_student_fields_context())
 
     form = _read_user_form(with_username=True)
-    password = request.form.get("password", "")
-    confirm = request.form.get("confirm_password", "")
     is_student = form["role"] == "student"
 
     if is_student:
@@ -102,27 +101,36 @@ def user_create():
     else:
         errors = services.validate_user_fields(form, services.NEW_USER_ROLES)
         errors.update(validate_personal(form))
-    password_error = validate_new_password(password)
-    if password_error:
-        errors["password"] = password_error
-    elif password != confirm:
-        errors["confirm_password"] = "The passwords do not match."
     if errors:
         return json_errors(errors)
 
+    # The initial password is generated here and emailed to the new user. The admin never has to type or see it
+    # (unless the email cannot be sent: then it is shown once so the user is not locked out).
+    password = services.generate_temp_password()
     if is_student:
         try:
             student_services.create_student(form, generate_password_hash(password), g.user["id"])
         except mysql.connector.IntegrityError:
             return json_errors({"student_number": "That Student ID or email already exists."})
-        return json_ok(f"Student account {form['student_number']} was created. They must change the password at first login.")
+        username = form["student_number"]
+        record = f"student:{username}"
+    else:
+        try:
+            new_id = services.create_user(form, generate_password_hash(password), g.user["id"])
+        except mysql.connector.IntegrityError:
+            # Two people saved the same username/email at the same moment
+            return json_errors({"username": "That username or email address is already in use."})
+        username = form["username"]
+        record = f"user:{new_id}"
 
-    try:
-        services.create_user(form, generate_password_hash(password), g.user["id"])
-    except mysql.connector.IntegrityError:
-        # Two people saved the same username/email at the same moment
-        return json_errors({"username": "That username or email address is already in use."})
-    return json_ok(f"Account '{form['username']}' was created. They must change the password at first login.")
+    sent, problem = email_initial_password(form["email"], form["full_name"], username, password, g.user["id"], record)
+    if sent:
+        return json_ok(f"Account '{username}' was created. The initial password was emailed to {mask_email(form['email'])}.")
+    html = render_template("students/_password_result.html", student_number=username, full_name=form["full_name"],
+                           temp_password=password, created=True, email=form["email"], email_problem=problem)
+    response = jsonify(ok=True, message="Account created, but the email was not sent.", html_result=html)
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 # ------------------------------------------------------------------ edit

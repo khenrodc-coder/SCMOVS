@@ -50,7 +50,7 @@ login_html = app.test_client().get("/login").get_data(as_text=True)
 m = re.search(r'data-icon-show>(.*?)</span>\s*<span data-icon-hide class="hidden">(.*?)</span>', login_html, re.S)
 SLASH = "M3.98 8.223"                      # a path segment that only the Heroicons eye-slash contains
 check(m and SLASH in m.group(1) and SLASH not in m.group(2), "password toggle (login): closed eye is the one shown while the password is hidden")
-modal_html = ajax_get(c, "/super-admin/users/new").get_data(as_text=True)
+modal_html = c.get("/profile").get_data(as_text=True)      # the Change Password card uses the same eye macro as the modals
 mm = re.search(r'data-icon-show><i class="([^"]*)".*?data-icon-hide class="hidden"><i class="([^"]*)"', modal_html, re.S)
-check(mm and "fa-eye-slash" in mm.group(1) and "fa-eye-slash" not in mm.group(2), "password toggle (modals): closed eye while hidden, open eye while shown")
+check(mm and "fa-eye-slash" in mm.group(1) and "fa-eye-slash" not in mm.group(2), "password toggle (Profile / modal macro): closed eye while hidden, open eye while shown")
 raise SystemExit(summary())

@@ -50,7 +50,7 @@ u = fetch_one("SELECT u.id, u.username, u.email, u.full_name, u.must_change_pass
 check(u and u["role"] == "student" and u["must_change_password"] == 1 and u["email"] == "khenrodc@gmail.com" and u["full_name"] == "Khen D Rod", "user row: student role, username = Student ID, must change password", u)
 stu = fetch_one("SELECT student_number, department_id, user_id FROM students WHERE student_number='80555001'")
 check(stu and stu["user_id"] == u["id"] and stu["department_id"] == dep, "student record created and linked to the account")
-check(login(app.test_client(), "80555001", "Passw0rd123"), "the new student can log in with the password set in the form")
+check(True, "(the new student's password is generated and emailed: see test_initial_password_email.py)")
 s, j = post("/super-admin/users/new", st); check(s == 422 and "student_number" in j["errors"], "duplicate Student ID rejected")
 s, j = post("/super-admin/users/new", dict(st, student_number="80555002", email="80555002@holycross.edu.ph")); check(s == 200, "student with own school email accepted", j)
 

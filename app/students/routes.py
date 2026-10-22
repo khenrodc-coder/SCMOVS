@@ -3,6 +3,7 @@ from flask import Blueprint, abort, flash, g, jsonify, redirect, render_template
 from werkzeug.security import generate_password_hash
 
 from app.auth.decorators import access_required
+from app.accounts import email_initial_password, mask_email
 from app.auth import recovery
 from app.auth.services import is_safe_next
 from app.mailer import MailNotConfigured, MailSendError
@@ -102,10 +103,15 @@ def create():
         services.create_student(form, generate_password_hash(temp_password), g.user["id"])
     except mysql.connector.IntegrityError:
         return json_errors({"student_number": "That Student ID or email already exists."})   # two admins saved at once
-    # The temporary password is shown ONCE inside the modal. It is never stored readable or logged.
+    # The initial password is emailed to the student. Only if that fails is it shown (once) so they are not locked out.
+    sent, problem = email_initial_password(form["email"], services.build_full_name(form), form["student_number"],
+                                           temp_password, g.user["id"], f"student:{form['student_number']}")
+    if sent:
+        return json_ok(f"Student {form['student_number']} was created. The initial password was emailed to {mask_email(form['email'])}.")
     html = render_template("students/_password_result.html", student_number=form["student_number"],
-                           full_name=services.build_full_name(form), temp_password=temp_password, created=True)
-    response = jsonify(ok=True, message=f"Student {form['student_number']} was created.", html_result=html)
+                           full_name=services.build_full_name(form), temp_password=temp_password, created=True,
+                           email=form["email"], email_problem=problem)
+    response = jsonify(ok=True, message=f"Student {form['student_number']} was created, but the email was not sent.", html_result=html)
     response.headers["Cache-Control"] = "no-store"
     return response
 

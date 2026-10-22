@@ -36,10 +36,8 @@ if True:
     check(s == 422 and "role" in j["errors"], "Super Admin can NOT be created from Users (not offered, refused by the server)")
     s, j = post(role="student", email="")
     check(s == 422 and "student_number" in j["errors"], "Student role from Users requires the student fields")
-    s, j = post(confirm_password="x")
-    check(s == 422 and "confirm_password" in j["errors"], "password mismatch rejected")
-    s, j = post(password="short", confirm_password="short")
-    check(s == 422 and "password" in j["errors"], "weak password rejected")
+    check("name=\"password\"" not in html and "name=\"confirm_password\"" not in html, "Add User no longer asks for a password (it is generated and emailed)")
+    check("emailed to the address above" in html, "the form explains that the initial password is emailed")
     check(fetch_one("SELECT id FROM users WHERE username='tuser1'") is None, "nothing was saved by any invalid request")
 
     s, j = post(first_name="  Ana   Liza ", middle_name=" Cruz ", email="  ANA.Reyes@Gmail.COM ")

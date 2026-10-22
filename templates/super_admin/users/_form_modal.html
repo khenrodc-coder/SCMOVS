@@ -61,9 +61,7 @@
     {{ personal_fields(form) }}
 
     {% if create %}
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {{ password_field('password', 'Initial password', hint='Letters and numbers. Changed at first login.') }}
-            {{ password_field('confirm_password', 'Confirm password') }}
-        </div>
+        <p class="flex items-start gap-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900"><i class="fa-solid fa-envelope mt-0.5"></i>
+            <span>An initial password is created automatically and <strong>emailed to the address above</strong>. The user must choose a new password the first time they sign in.</span></p>
     {% endif %}
 {% endcall %}

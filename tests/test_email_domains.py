@@ -3,6 +3,8 @@ from unittest import mock
 app, c = new_client(PUBLIC_BASE_URL="https://scmovs.example.org", MAIL_SERVER="smtp.test", MAIL_USERNAME="u", MAIL_PASSWORD="p", MAIL_SENDER="s@x.org")
 db_exec("UPDATE users SET must_change_password=0")
 login(c, "superadmin", "SuperAdmin@123")
+_sent_welcome = []
+mock.patch("app.accounts.send_mail", lambda *a, **k: _sent_welcome.append(a)).start()      # never send real email from tests
 dep = fetch_one("SELECT id FROM departments WHERE code='COL'")["id"]; yr = fetch_one("SELECT id FROM school_years WHERE status='active'")["id"]
 
 # ---------- staff accounts (Users page)
