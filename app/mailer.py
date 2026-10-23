@@ -1,68 +1,69 @@
 
-"""Send email through the Resend HTTPS API."""
+"""Send email through Gmail SMTP."""
 
-import requests
+import smtplib
+from email.message import EmailMessage
 from flask import current_app
 
 
 class MailNotConfigured(Exception):
-    """Email API settings are missing."""
+    """Email settings are missing."""
 
 
 class MailSendError(Exception):
-    """The email API rejected or could not deliver the message."""
+    """Email could not be sent."""
 
 
 def mail_is_configured():
     cfg = current_app.config
     return bool(
-        cfg.get("RESEND_API_KEY")
-        and cfg.get("RESEND_FROM_EMAIL")
+        cfg.get("MAIL_SERVER")
+        and cfg.get("MAIL_PORT")
+        and cfg.get("MAIL_USERNAME")
+        and cfg.get("MAIL_PASSWORD")
+        and cfg.get("MAIL_SENDER")
     )
 
 
 def send_mail(to_address, subject, text_body, html_body=None):
-    """Send one email through Resend's HTTPS API."""
+    """Send one email through Gmail SMTP."""
     cfg = current_app.config
 
     if not mail_is_configured():
-        raise MailNotConfigured("Resend is not configured")
+        raise MailNotConfigured("Gmail SMTP is not configured")
 
-    payload = {
-        "from": cfg["RESEND_FROM_EMAIL"],
-        "to": [to_address],
-        "subject": subject,
-        "text": text_body,
-    }
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = cfg["MAIL_SENDER"]
+    message["To"] = to_address
+    message.set_content(text_body)
 
     if html_body:
-        payload["html"] = html_body
+        message.add_alternative(html_body, subtype="html")
 
     try:
-        response = requests.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {cfg['RESEND_API_KEY']}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=15,
-        )
+        with smtplib.SMTP(
+            cfg["MAIL_SERVER"],
+            int(cfg["MAIL_PORT"]),
+            timeout=20,
+        ) as server:
+            server.ehlo()
 
-        if not response.ok:
-            current_app.logger.error(
-                "Resend email API failed: HTTP %s",
-                response.status_code,
+            if cfg.get("MAIL_USE_TLS"):
+                server.starttls()
+                server.ehlo()
+
+            server.login(
+                cfg["MAIL_USERNAME"],
+                cfg["MAIL_PASSWORD"],
             )
-            raise MailSendError(
-                f"Resend API returned HTTP {response.status_code}"
-            )
+            server.send_message(message)
 
-        current_app.logger.info("Resend accepted an email request")
+        current_app.logger.info("Email sent successfully")
 
-    except requests.RequestException as error:
+    except (smtplib.SMTPException, OSError) as error:
         current_app.logger.error(
-            "Resend request failed: %s",
+            "Gmail SMTP failed: %s",
             type(error).__name__,
         )
-        raise MailSendError(type(error).__name__) from error
+        raise MailSendError("Gmail SMTP could not send the email") from error
