@@ -51,8 +51,9 @@ def send_mail(to_address, subject, text_body, html_body=None):
 
         if not response.ok:
             current_app.logger.error(
-                "Resend email API failed: HTTP %s",
+                "Resend email API failed: HTTP %s: %s",
                 response.status_code,
+                response.text[:300],
             )
             raise MailSendError(
                 f"Resend API returned HTTP {response.status_code}"
