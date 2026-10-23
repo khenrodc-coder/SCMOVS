@@ -20,7 +20,7 @@ class Config:
         "MAIL_SENDER", "") or os.environ.get("MAIL_USERNAME", "")
     # Address used inside emailed links (no trailing slash). Set it in .env for production.
     PUBLIC_BASE_URL = os.environ.get(
-        "PUBLIC_BASE_URL", "http://127.0.0.1:5000/").rstrip("/")
+        "PUBLIC_BASE_URL", "https://scmovs.up.railway.app/").rstrip("/")
 
     # Resend HTTPS API
     RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
