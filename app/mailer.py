@@ -64,6 +64,6 @@ def send_mail(to_address, subject, text_body, html_body=None):
     except (smtplib.SMTPException, OSError) as error:
         current_app.logger.error(
             "Gmail SMTP failed: %s",
-            type(error).__name__,
+            str(error),
         )
         raise MailSendError("Gmail SMTP could not send the email") from error
