@@ -74,6 +74,13 @@ def update_election_statuses():
     """Open what is due, then close what is over. Returns (opened, closed)."""
     return open_due_elections(), close_due_elections()
 
+def wake():
+    """Immediately check whether any scheduled elections should open or close."""
+    try:
+        update_election_statuses()
+    except Exception:
+        log.exception("Election status check triggered by wake() failed")
+
 
 def check_on_request():
     """before_request hook: cheap, throttled, and never allowed to break a page."""

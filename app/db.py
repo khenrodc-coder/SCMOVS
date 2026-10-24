@@ -1,3 +1,4 @@
+
 import mysql.connector
 from flask import current_app, g
 
@@ -11,7 +12,8 @@ def get_db():
     """
     if "db" not in g:
         cfg = current_app.config
-               g.db = mysql.connector.connect(
+
+        g.db = mysql.connector.connect(
             host=cfg["DATABASE_HOST"],
             port=cfg["DATABASE_PORT"],
             user=cfg["DATABASE_USER"],
@@ -21,13 +23,18 @@ def get_db():
             autocommit=False,
         )
 
-        # Election timestamps are stored as Philippine local time.
-        # Keep this connection's NOW() consistent with those timestamps.
+        # Keep election timestamp comparisons aligned to Philippine time.
         cursor = g.db.cursor()
         try:
             cursor.execute("SET SESSION time_zone = '+08:00'")
+        except Exception:
+            g.db.close()
+            g.pop("db", None)
+            raise
         finally:
             cursor.close()
+
+    return g.db
 
 
 def close_db(error=None):
