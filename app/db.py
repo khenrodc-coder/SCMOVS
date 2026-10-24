@@ -1,15 +1,9 @@
-
 import mysql.connector
 from flask import current_app, g
 
 
 def get_db():
-    """Return one MySQL connection per request (stored in flask.g).
-
-    autocommit is OFF, so multi-step operations (voting, financial approval)
-    can be wrapped in a transaction: do the queries, then db.commit(),
-    or db.rollback() if anything fails.
-    """
+    """Return one MySQL connection per request."""
     if "db" not in g:
         cfg = current_app.config
 
@@ -23,7 +17,6 @@ def get_db():
             autocommit=False,
         )
 
-        # Keep election timestamp comparisons aligned to Philippine time.
         cursor = g.db.cursor()
         try:
             cursor.execute("SET SESSION time_zone = '+08:00'")
