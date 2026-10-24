@@ -51,8 +51,9 @@ def get_student(user_id):
 def get_voter(user):
     """Who is voting: a student (their record) or a Super Admin, or None for anyone else.
 
-    A Super Admin has no student record. They may vote once in ANY election (any department and school year);
-    their ballot is stored with voter_user_id instead of student_id. The database trigger checks the role again.
+    A Super Admin has no student record. The currently deployed ballots schema does not
+    support administrator ballots, so voting is safely disabled for this role until the schema
+    and database triggers are updated together.
     """
     if user["role"] == "super_admin":
         return {"id": None, "kind": "admin", "user_id": user["id"], "status": "active", "student_number": None,
@@ -86,11 +87,14 @@ def my_ballot(election_id, voter):
 
 
 def access_problem(election, student):
-    """None when this student may see the election, otherwise 'missing' (404) or ('forbidden', reason) (403)."""
+    """Return None when this voter may access an election, otherwise a reason to deny access."""
     if election is None or election["status"] not in VISIBLE_STATUSES:
         return "missing"
     if student.get("kind") == "admin":
-        return None                       # Super Admin: any visible election, once
+        return (
+            "forbidden",
+            "Super Admin voting is temporarily unavailable because the current database schema supports student ballots only."
+        )
     if student["status"] != "active":
         return ("forbidden", "Only active students can take part in elections.")
     if election["department_id"] != student["department_id"] or election["school_year_id"] != student["school_year_id"]:
@@ -119,7 +123,7 @@ def list_elections(student):
     marks = ", ".join(["%s"] * len(VISIBLE_STATUSES))
 
     if student.get("kind") == "admin":
-        # The current Railway ballots table has no voter_user_id column.
+        # The current Railway ballots table has no administrator-voter column.
         # Avoid joining against a column that does not exist.
         rows = fetch_all(
             "SELECT e.id, e.name, e.status, e.start_at, e.end_at, "
@@ -170,8 +174,14 @@ def list_elections(student):
         row["state"] = voting_state(
             row, row["voted_at"] is not None
         )
-        row["state_label"], row["tone"] = STATE_LABELS[row["state"]]
-        row["can_vote"] = row["state"] == "open"
+        if student.get("kind") == "admin":
+            # Keep election visibility, but do not offer voting until the schema supports it.
+            row["state_label"] = "Super Admin voting unavailable"
+            row["tone"] = "slate"
+            row["can_vote"] = False
+        else:
+            row["state_label"], row["tone"] = STATE_LABELS[row["state"]]
+            row["can_vote"] = row["state"] == "open"
 
     rows.sort(key=lambda r: priority[r["state"]])
     return rows
@@ -249,6 +259,11 @@ def cast_ballot(user, election_id, form):
     student = get_voter(user)
     if student is None:
         return False, "No student record is linked to your account."
+    if student.get("kind") == "admin":
+        return False, (
+            "Super Admin voting is temporarily unavailable because the current "
+            "database schema supports student ballots only."
+        )
     election = get_election(election_id)
     problem = access_problem(election, student)
     if problem == "missing":
@@ -270,12 +285,10 @@ def cast_ballot(user, election_id, form):
     db.start_transaction()
     cursor = db.cursor()
     try:
-        if student.get("kind") == "admin":
-            cursor.execute("INSERT INTO ballots (election_id, voter_user_id) VALUES (%s, %s)",
-                           (election_id, student["user_id"]))
-        else:
-            cursor.execute(
-                "INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
+        cursor.execute(
+            "INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)",
+            (election_id, student["id"])
+        )
         ballot_id = cursor.lastrowid
         for position_id, candidate_id in selections.items():
             cursor.execute("INSERT INTO votes (ballot_id, election_id, position_id, candidate_id) VALUES (%s, %s, %s, %s)",
