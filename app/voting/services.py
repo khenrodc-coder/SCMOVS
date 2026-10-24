@@ -182,6 +182,8 @@ def list_elections(student):
         else:
             row["state_label"], row["tone"] = STATE_LABELS[row["state"]]
             row["can_vote"] = row["state"] == "open"
+            # shown even to students who voted
+            row["results_published"] = row["status"] == "published"
 
     rows.sort(key=lambda r: priority[r["state"]])
     return rows

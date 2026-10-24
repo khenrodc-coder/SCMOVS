@@ -37,6 +37,7 @@
             {% else %}
             <span class="text-slate-600">Voting is closed. Results are shown only after they are verified and published.</span>
             {% endif %}
+            {% if e.results_published %}<a href="{{ url_for('results.view', election_id=e.id) }}" class="font-semibold text-blue-700 hover:underline"><i class="fa-solid fa-square-poll-vertical mr-1"></i>View official results</a>{% endif %}
         </div>
     </article>
     {% else %}
@@ -60,4 +61,5 @@
 })();
 </script>
 {% endif %}
+
 {% endblock %}

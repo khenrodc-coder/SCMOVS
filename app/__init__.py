@@ -94,6 +94,9 @@ def create_app():
     app.register_blueprint(media_bp)
     app.register_blueprint(profile_bp)
 
+    from app.results.routes import results_bp
+    app.register_blueprint(results_bp)
+
     from app.errors import register_error_handlers
     register_error_handlers(app)
 

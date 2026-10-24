@@ -149,9 +149,11 @@
             {% endcall %}
             {% endif %}
             {% if has_permission('elections.view') or has_permission('candidates.manage') or has_permission('positions.manage') %}
-            {% call nav_group('elections', 'clipboard-document-check', 'Elections', ep.startswith('elections.') or ep.startswith('candidates.') or ep.startswith('positions.')) %}
+            {% call nav_group('elections', 'clipboard-document-check', 'Elections', ep.startswith('elections.') or ep.startswith('candidates.') or ep.startswith('positions.') or ep.startswith('results.admin')) %}
                 {% if has_permission('elections.view') %}{{ nav_link(url_for('elections.list_page'), 'clipboard-document-check', 'Elections', ep.startswith('elections.')) }}{% endif %}
+                {% if has_permission('results.view_published') and current_user.role in ('student', 'council_officer') %}{{ nav_link(url_for('results.list_page'), 'fa-square-poll-vertical', 'Results', ep in ('results.list_page', 'results.view')) }}{% endif %}
                 {% if has_permission('candidates.manage') %}{{ nav_link(url_for('candidates.list_page'), 'identification', 'Candidates', ep.startswith('candidates.')) }}{% endif %}
+                {% if has_permission('results.verify') or has_permission('elections.publish') %}{{ nav_link(url_for('results.admin_list'), 'fa-square-poll-vertical', 'Results', ep.startswith('results.admin')) }}{% endif %}
                 {% if has_permission('positions.manage') %}{{ nav_link(url_for('positions.list_page'), 'briefcase', 'Positions', ep.startswith('positions.')) }}{% endif %}
             {% endcall %}
             {% endif %}

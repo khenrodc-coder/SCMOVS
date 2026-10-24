@@ -26,8 +26,9 @@ SETTINGS = [
      "label": "Every position needs an approved candidate",
      "help": "An election cannot be opened while a position has no approved candidate."},
     {"key": "election_block_pending_candidates", "category": "election", "type": "bool", "default": True,
-     "label": "Pending candidates block opening",
-     "help": "An election cannot be opened while candidates are still waiting for review."},
+     "label": "Results need a second administrator",
+     "help": "The administrator who calculated an election's results cannot also verify them. "
+             "Turn this off only if your school has a single administrator."},
 
     {"key": "notifications_enabled", "category": "notification", "type": "bool", "default": True,
      "label": "Send in-app notifications",

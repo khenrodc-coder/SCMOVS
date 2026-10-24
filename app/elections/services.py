@@ -21,7 +21,7 @@ ACTIONS = {
     "unschedule": (("scheduled",), "draft"),
     "open":       (("scheduled",), "open"),
     "close":      (("open",), "closed"),
-    "archive":    (("draft",), "archived"),
+    "archive":    (("draft", "published"), "archived"),
     # goes back to draft (or published if it was published)
     "restore":    (("archived",), None),
 }
@@ -453,6 +453,10 @@ def report_open_problem(election, reason):
         raise
     finally:
         cursor.close()
+
+
+# also used by the results module (Phase 7B)
+notify_eligible_students = _notify_eligible_students
 
 
 def change_status(election, action, actor_id, automatic=False):

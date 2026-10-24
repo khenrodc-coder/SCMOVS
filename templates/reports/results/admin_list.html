@@ -1,0 +1,49 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/badges.html" import status_badge %}
+{% block title %}Results{% endblock %}
+
+{% set field = 'border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-900">Election Results</h1>
+<p class="text-sm text-slate-600">Closed elections move through three steps: <strong>calculate</strong>, <strong>verify</strong> (by a different administrator) and <strong>publish</strong>. Students see results only after publication.</p>
+
+<form method="get" action="{{ url_for('results.admin_list') }}" class="mt-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-4">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search election name" class="{{ field }} md:col-span-2">
+    <select name="status" class="{{ field }}">
+        <option value="">All statuses</option>
+        {% for st in statuses %}<option value="{{ st }}" {{ 'selected' if status == st }}>{{ st|replace('_', ' ')|capitalize }}</option>{% endfor %}
+    </select>
+    <div class="flex gap-2">
+        <button type="submit" class="rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800">Search</button>
+        <a href="{{ url_for('results.admin_list') }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100">Reset</a>
+    </div>
+</form>
+
+<div class="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+    {% if items %}
+    <table class="w-full text-sm">
+        <thead class="bg-slate-100 text-left"><tr><th class="px-4 py-2">Election</th><th class="px-4 py-2">Department</th><th class="px-4 py-2">Closed</th><th class="px-4 py-2">Turnout</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Progress</th><th class="px-4 py-2"></th></tr></thead>
+        <tbody class="divide-y divide-slate-200">
+        {% for e in items %}
+            <tr class="align-top">
+                <td class="px-4 py-2 font-medium">{{ e.name }}<br><span class="text-xs font-normal text-slate-500">{{ e.school_year }}</span></td>
+                <td class="px-4 py-2">{{ e.department }}</td>
+                <td class="whitespace-nowrap px-4 py-2 text-xs">{{ e.end_at|dt }}</td>
+                <td class="px-4 py-2">{% if e.ballots_counted is not none %}{{ e.ballots_counted }} / {{ e.eligible_voters }}{% else %}<span class="text-slate-400">Not calculated</span>{% endif %}</td>
+                <td class="whitespace-nowrap px-4 py-2">{{ status_badge(e.status) }}</td>
+                <td class="px-4 py-2 text-xs text-slate-600">
+                    {% if e.calculated_at %}Calculated by {{ e.calculated_by_name }}{% else %}Waiting to be calculated{% endif %}
+                    {% if e.verified_at %}<br>Verified {{ e.verified_at|dt }}{% endif %}{% if e.published_at %}<br>Published {{ e.published_at|dt }}{% endif %}</td>
+                <td class="px-4 py-2"><a href="{{ url_for('results.admin_detail', election_id=e.id) }}" class="text-blue-700 hover:underline">Manage</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="px-6 py-12 text-center text-slate-500"><i class="fa-solid fa-square-poll-vertical text-3xl"></i><p class="mt-2">No closed elections yet. Results appear here once voting has closed.</p></div>
+    {% endif %}
+</div>
+{{ pagination('results.admin_list', page, pages, filters, total) }}
+{% endblock %}

@@ -1,0 +1,111 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/results.html" import position_results %}
+{% from "components/badges.html" import status_badge %}
+{% from "components/cards.html" import stat_card %}
+{% block title %}Results: {{ election.name }}{% endblock %}
+
+{% set order = ['closed', 'pending_verification', 'verified', 'published'] %}
+{% set reached = order.index(election.status) if election.status in order else 3 %}
+{% set field = 'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600' %}
+
+{% macro blocked(state) %}{% if not state[0] %}<p class="mt-1 text-xs text-slate-500"><i class="fa-solid fa-circle-info mr-1"></i>{{ state[1] }}</p>{% endif %}{% endmacro %}
+
+{% block content %}
+<a href="{{ url_for('results.admin_list') }}" class="text-sm text-blue-700 hover:underline">&larr; All results</a>
+<div class="mt-2 flex flex-wrap items-start justify-between gap-2">
+    <div>
+        <h1 class="text-2xl font-bold text-blue-900">{{ election.name }}</h1>
+        <p class="text-sm text-slate-600">{{ election.department }} &middot; {{ election.school_year }}</p>
+    </div>
+    {{ status_badge(election.status) }}
+</div>
+
+<ol class="mt-4 grid grid-cols-2 gap-2 text-center text-xs font-semibold sm:grid-cols-4" aria-label="Progress">
+    {% for key, label in steps %}
+    {% set done = loop.index0 <= reached and election.status != 'archived' or election.status == 'archived' %}
+    <li class="rounded-lg border px-2 py-2 {{ 'border-green-300 bg-green-50 text-green-800' if loop.index0 <= reached else 'border-slate-200 bg-white text-slate-400' }}">
+        {% if loop.index0 <= reached %}<i class="fa-solid fa-circle-check mr-1"></i>{% else %}<i class="fa-regular fa-circle mr-1"></i>{% endif %}{{ label }}</li>
+    {% endfor %}
+</ol>
+
+{% if problem %}
+<div class="mt-4 rounded-lg border border-red-300 border-l-4 border-l-red-500 bg-red-50 px-4 py-3 text-sm text-red-800"><i class="fa-solid fa-triangle-exclamation mr-1"></i><strong>Integrity check failed.</strong> {{ problem }}</div>
+{% endif %}
+
+{% if election.calculated_at %}
+<section class="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-4" aria-label="Participation">
+    {{ stat_card('fa-users', 'Eligible voters', election.eligible_voters) }}
+    {{ stat_card('fa-check-to-slot', 'Ballots cast', election.ballots_counted) }}
+    {{ stat_card('fa-percent', 'Turnout', (((100 * election.ballots_counted / election.eligible_voters)|round(1)) if election.eligible_voters else 0) ~ '%') }}
+    {{ stat_card('fa-ban', 'Excluded votes', election.excluded_votes, 'For candidates no longer approved') }}
+</section>
+<dl class="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+    <div class="rounded-lg border border-slate-200 bg-white px-4 py-2"><dt class="text-xs text-slate-500">Calculated</dt><dd class="font-medium">{{ election.calculated_by_name }}<br><span class="text-xs font-normal text-slate-500">{{ election.calculated_at|dt }}</span></dd></div>
+    <div class="rounded-lg border border-slate-200 bg-white px-4 py-2"><dt class="text-xs text-slate-500">Verified</dt><dd class="font-medium">{% if election.verified_at %}{{ election.verified_by_name }}<br><span class="text-xs font-normal text-slate-500">{{ election.verified_at|dt }}</span>{% else %}<span class="text-slate-400">Not yet</span>{% endif %}</dd></div>
+    <div class="rounded-lg border border-slate-200 bg-white px-4 py-2"><dt class="text-xs text-slate-500">Published</dt><dd class="font-medium">{% if election.published_at %}{{ election.published_by_name }}<br><span class="text-xs font-normal text-slate-500">{{ election.published_at|dt }}</span>{% else %}<span class="text-slate-400">Not yet</span>{% endif %}</dd></div>
+</dl>
+{% endif %}
+
+{# ---------------- actions ---------------- #}
+<section class="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Actions">
+    <h2 class="font-semibold text-blue-900">Actions</h2>
+    <div class="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
+
+        <div>
+            <form method="post" action="{{ url_for('results.admin_action', election_id=election.id, action='calculate') }}"
+                  {% if election.status == 'pending_verification' %}data-confirm="Recalculate? The current calculated results will be replaced."{% endif %}>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" {{ 'disabled' if not states.calculate[0] }} class="rounded-lg px-4 py-2 text-sm font-semibold text-white {{ 'bg-blue-900 hover:bg-blue-800' if states.calculate[0] else 'cursor-not-allowed bg-slate-300' }}"><i class="fa-solid fa-calculator mr-1"></i>{{ 'Recalculate results' if election.status == 'pending_verification' else 'Calculate results' }}</button>
+            </form>
+            {{ blocked(states.calculate) }}
+            <p class="mt-1 text-xs text-slate-500">Counts the votes and saves a snapshot. Votes are counted by candidate only.</p>
+        </div>
+
+        <div>
+            <form method="post" action="{{ url_for('results.admin_action', election_id=election.id, action='verify') }}" class="space-y-2" data-confirm="Verify these results? You confirm they are correct.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if has_tie and states.verify[0] %}
+                <label class="flex items-start gap-2 text-sm text-amber-900"><input type="checkbox" name="acknowledge_ties" value="1" class="mt-1"> There is a tie for a seat. I understand it will be published as a tie, not decided automatically.</label>
+                {% endif %}
+                <textarea name="remarks" rows="2" maxlength="500" placeholder="Remarks (optional)" class="{{ field }}" {{ 'disabled' if not states.verify[0] }}></textarea>
+                <button type="submit" {{ 'disabled' if not states.verify[0] }} class="rounded-lg px-4 py-2 text-sm font-semibold text-white {{ 'bg-green-700 hover:bg-green-600' if states.verify[0] else 'cursor-not-allowed bg-slate-300' }}"><i class="fa-solid fa-clipboard-check mr-1"></i>Verify results</button>
+            </form>
+            {{ blocked(states.verify) }}
+        </div>
+
+        <div>
+            <form method="post" action="{{ url_for('results.admin_action', election_id=election.id, action='publish') }}" data-confirm="Publish these results? Students will be notified and can see them.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" {{ 'disabled' if not states.publish[0] }} class="rounded-lg px-4 py-2 text-sm font-semibold text-white {{ 'bg-blue-900 hover:bg-blue-800' if states.publish[0] else 'cursor-not-allowed bg-slate-300' }}"><i class="fa-solid fa-bullhorn mr-1"></i>Publish results</button>
+            </form>
+            {{ blocked(states.publish) }}
+        </div>
+
+        <div>
+            <form method="post" action="{{ url_for('results.admin_action', election_id=election.id, action='return') }}" class="space-y-2" data-confirm="Send the results back? The calculated results will be deleted and must be calculated again.">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <textarea name="reason" rows="2" maxlength="500" placeholder="Why are the results sent back? (required)" class="{{ field }}" {{ 'disabled' if not states['return'][0] }}></textarea>
+                <button type="submit" {{ 'disabled' if not states['return'][0] }} class="rounded-lg px-4 py-2 text-sm font-semibold text-white {{ 'bg-red-700 hover:bg-red-600' if states['return'][0] else 'cursor-not-allowed bg-slate-300' }}"><i class="fa-solid fa-rotate-left mr-1"></i>Send back for recalculation</button>
+            </form>
+            {{ blocked(states['return']) }}
+        </div>
+    </div>
+</section>
+
+{# ---------------- the saved results ---------------- #}
+{% if positions %}
+<h2 class="mt-6 text-lg font-semibold text-blue-900">{{ 'Official results' if election.status in ('published', 'archived') else 'Calculated results (not public yet)' }}</h2>
+<div class="mt-3 space-y-4">{% for p in positions %}{{ position_results(p, labels) }}{% endfor %}</div>
+{% elif election.status == 'closed' %}
+<div class="mt-6 rounded-xl border border-slate-200 bg-white px-6 py-10 text-center text-slate-500"><i class="fa-solid fa-calculator text-3xl"></i><p class="mt-2">Voting is closed. Calculate the results to see them here.</p></div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if positions %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script id="results-data" type="application/json">{{ charts|tojson|safe }}</script>
+<script>window.SCMOVS_RESULTS = JSON.parse(document.getElementById('results-data').textContent);</script>
+<script src="{{ url_for('static', filename='js/results.js') }}"></script>
+{% endif %}
+{% endblock %}
