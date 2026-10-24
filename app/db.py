@@ -11,7 +11,7 @@ def get_db():
     """
     if "db" not in g:
         cfg = current_app.config
-        g.db = mysql.connector.connect(
+               g.db = mysql.connector.connect(
             host=cfg["DATABASE_HOST"],
             port=cfg["DATABASE_PORT"],
             user=cfg["DATABASE_USER"],
@@ -20,7 +20,14 @@ def get_db():
             charset="utf8mb4",
             autocommit=False,
         )
-    return g.db
+
+        # Election timestamps are stored as Philippine local time.
+        # Keep this connection's NOW() consistent with those timestamps.
+        cursor = g.db.cursor()
+        try:
+            cursor.execute("SET SESSION time_zone = '+08:00'")
+        finally:
+            cursor.close()
 
 
 def close_db(error=None):

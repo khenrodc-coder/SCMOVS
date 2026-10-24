@@ -33,13 +33,6 @@
     The voting period has ended but the election is still marked Open. Voting is already blocked; please close it.
 </div>
 {% endif %}
-{% if open_problem %}
-<div class="mt-4 bg-red-50 border border-red-300 border-l-4 border-l-red-500 text-red-900 rounded-lg px-4 py-3 text-sm" role="alert">
-    <p class="font-semibold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Voting should have started, but this election could not open.</p>
-    <p class="mt-1">{{ open_problem }}</p>
-    <p class="mt-1 text-xs">The system keeps trying. As soon as this is fixed, voting opens by itself.</p>
-</div>
-{% endif %}
 
 <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
     <div class="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-sm md:col-span-2">
@@ -146,20 +139,4 @@
     </div>
     {% endif %}
 </div>
-{% endblock %}
-
-{% block scripts %}
-{% set reload_in = (election.secs_to_start if (election.status == 'scheduled' and election.secs_to_start > 0) else (election.secs_to_end if (election.status == 'open' and election.secs_to_end > 0) else none)) %}
-{# Reload this page at the next moment voting starts or ends. The seconds come from the SERVER clock, so a wrong clock or
-   time zone on the visitor's device cannot make it early or late. Skipped when more than ~23 days away (browser timer limit). #}
-{% if reload_in is not none and reload_in > 0 and reload_in < 2000000 %}
-<script>
-(function () {
-    var due = Date.now() + ({{ reload_in|int }} + 2) * 1000;
-    var go = function () { location.reload(); };
-    setTimeout(go, due - Date.now());
-    document.addEventListener("visibilitychange", function () { if (!document.hidden && Date.now() >= due) go(); });   // background tabs can be slow
-})();
-</script>
-{% endif %}
 {% endblock %}
