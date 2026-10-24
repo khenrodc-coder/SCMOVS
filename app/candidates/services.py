@@ -1,4 +1,5 @@
 from app.audit.services import log_action
+from app.elections.auto_close import wake as wake_checker
 from app.db import fetch_all, fetch_one, get_db
 from app.settings.services import get_bool
 from app.utils import escape_like, get_page, to_int
@@ -236,6 +237,7 @@ def review(candidate, action, remarks, actor_id):
                    f"'{candidate['election_name']}': {candidate['status']} -> {new_status}",
                    affected_record=f"candidate:{candidate['id']}", commit=False)
         db.commit()
+        wake_checker()
         return None
     except Exception:
         db.rollback()

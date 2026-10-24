@@ -76,6 +76,7 @@ def detail(election_id):
         available_positions=services.get_available_positions(
             election_id) if editable else [],
         participation=services.get_participation(election_id),
+        open_problem=services.open_problem(election),
         actions=services.ACTIONS)
 
 

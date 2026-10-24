@@ -116,14 +116,14 @@ def list_elections(student):
     if student.get("kind") == "admin":
         rows = fetch_all(
             "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
-            "(NOW() > e.end_at) AS ended, b.submitted_at AS voted_at, d.name AS department_name "
+            "(NOW() > e.end_at) AS ended, TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end, b.submitted_at AS voted_at, d.name AS department_name "
             "FROM elections e JOIN departments d ON d.id = e.department_id "
-            "LEFT JOIN ballots b ON b.election_id = e.id AND b.student_id = %s "
-            f"WHERE e.status IN ({marks}) ORDER BY e.start_at DESC, e.id DESC", (student["id"],) + VISIBLE_STATUSES)
+            "LEFT JOIN ballots b ON b.election_id = e.id AND b.voter_user_id = %s "
+            f"WHERE e.status IN ({marks}) ORDER BY e.start_at DESC, e.id DESC", (student["user_id"],) + VISIBLE_STATUSES)
     else:
         rows = fetch_all(
             "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
-            "(NOW() > e.end_at) AS ended, b.submitted_at AS voted_at "
+            "(NOW() > e.end_at) AS ended, TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end, b.submitted_at AS voted_at "
             "FROM elections e LEFT JOIN ballots b ON b.election_id = e.id AND b.student_id = %s "
             f"WHERE e.department_id = %s AND e.school_year_id = %s AND e.status IN ({marks}) "
             "ORDER BY e.start_at DESC, e.id DESC", (student["id"], student["department_id"], student["school_year_id"]) + VISIBLE_STATUSES)
@@ -232,11 +232,9 @@ def cast_ballot(user, election_id, form):
     cursor = db.cursor()
     try:
         if student.get("kind") == "admin":
-            cursor.execute("INSERT INTO ballots (election_id, voter_user_id) VALUES (%s, %s)",
-                           (election_id, student["user_id"]))
+            cursor.execute("INSERT INTO ballots (election_id, voter_user_id) VALUES (%s, %s)", (election_id, student["user_id"]))
         else:
-            cursor.execute(
-                "INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
+            cursor.execute("INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
         ballot_id = cursor.lastrowid
         for position_id, candidate_id in selections.items():
             cursor.execute("INSERT INTO votes (ballot_id, election_id, position_id, candidate_id) VALUES (%s, %s, %s, %s)",

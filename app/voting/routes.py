@@ -41,7 +41,10 @@ def load(election_id):
 def my_elections():
     student = services.get_voter(g.user)
     elections = services.list_elections(student) if student else []
-    return render_template("voting/list.html", student=student, elections=elections)
+    # The page reloads itself at the next moment an election starts or ends (seconds measured by the SERVER clock)
+    upcoming = [e["secs_to_start"] for e in elections if e["secs_to_start"] and e["secs_to_start"] > 0 and e["status"] in ("scheduled", "open")]
+    upcoming += [e["secs_to_end"] for e in elections if e["secs_to_end"] and e["secs_to_end"] > 0 and e["status"] == "open"]
+    return render_template("voting/list.html", student=student, elections=elections, reload_in=min(upcoming) if upcoming else None)
 
 
 @voting_bp.route("/<int:election_id>")

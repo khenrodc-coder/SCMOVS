@@ -46,3 +46,18 @@
 </div>
 {% endif %}
 {% endblock %}
+
+{% block scripts %}
+{# Reload this page at the next moment voting starts or ends. The seconds come from the SERVER clock, so a wrong clock or
+   time zone on the visitor's device cannot make it early or late. Skipped when more than ~23 days away (browser timer limit). #}
+{% if reload_in is not none and reload_in > 0 and reload_in < 2000000 %}
+<script>
+(function () {
+    var due = Date.now() + ({{ reload_in|int }} + 2) * 1000;
+    var go = function () { location.reload(); };
+    setTimeout(go, due - Date.now());
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && Date.now() >= due) go(); });   // background tabs can be slow
+})();
+</script>
+{% endif %}
+{% endblock %}

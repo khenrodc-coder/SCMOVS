@@ -1,6 +1,7 @@
 from datetime import datetime
 from flask import url_for
 from app.audit.services import log_action
+from app.elections.auto_close import wake as wake_checker
 from app.db import fetch_all, fetch_one, get_db
 from app.settings.services import get_bool
 from app.utils import escape_like, get_page, to_int
@@ -123,7 +124,8 @@ def get_election(election_id):
         "       d.name AS department, d.code AS department_code, sy.name AS school_year, sy.status AS school_year_status, "
         "       (SELECT COUNT(*) FROM candidates c WHERE c.election_id = e.id) AS candidate_count, "
         "       (SELECT COUNT(*) FROM election_positions ep WHERE ep.election_id = e.id) AS position_count, "
-        "       (e.status = 'open' AND e.end_at < NOW()) AS overdue "
+        "       (e.status = 'open' AND e.end_at < NOW()) AS overdue, "
+        "       TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end "
         "FROM elections e JOIN departments d ON d.id = e.department_id "
         "JOIN school_years sy ON sy.id = e.school_year_id WHERE e.id = %s",
         (election_id,))
@@ -201,6 +203,7 @@ def update_election(election, form, actor_id):
         log_action(actor_id, "election_updated", "elections", f"Updated election '{election['name']}'",
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
+        wake_checker()
     except Exception:
         db.rollback()
         raise
@@ -266,6 +269,7 @@ def add_positions(election, raw_ids, actor_id):
                    f"Added positions to '{election['name']}': {names}",
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
+        wake_checker()
         return None
     except Exception:
         db.rollback()
@@ -297,6 +301,7 @@ def remove_position(election, position_id, actor_id):
                    f"Removed position '{row['name']}' from '{election['name']}'",
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
+        wake_checker()
         return None
     except Exception:
         db.rollback()
@@ -405,6 +410,21 @@ def _notify_admins(cursor, election, title, message, link_url):
     return cursor.rowcount            # 0 when an identical notice already exists
 
 
+def open_problem(election):
+    """Why a SCHEDULED election whose start time has arrived is not open yet (same checks as the Open button), or None."""
+    if election["status"] != "scheduled" or election["secs_to_start"] > 0:
+        return None
+    if election["end_at"] <= db_now():
+        return "Its voting period ended before it could be opened. Edit the dates to give it a new voting period."
+    clash = _overlap(election)
+    if clash:
+        return f"This period overlaps the election '{clash['name']}' of the same department."
+    if election["school_year_status"] != "active":
+        return "The school year of this election is not active."
+    problems = _ballot_blockers(election)
+    return " ".join(problems) if problems else None
+
+
 def report_open_problem(election, reason):
     """The scheduled start time arrived but the election could not open (or its period passed unopened).
 
@@ -496,6 +516,7 @@ def change_status(election, action, actor_id, automatic=False):
                    + ((" (opened automatically: scheduled start time reached)" if action == "open" else " (closed automatically: end time reached)") if automatic else ""),
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
+        wake_checker()                  # let the background checker re-plan its next wake-up
         return None
     except Exception:
         db.rollback()

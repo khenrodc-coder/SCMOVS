@@ -3,8 +3,11 @@
 Three safety nets, all using the SAME code path as the manual "Open voting" / "Close voting" buttons
 (app.elections.services.change_status), so every rule, notification and audit entry works exactly the same:
 
-  1. A background thread (long-running servers: python run.py, gunicorn) checks every AUTO_CLOSE_INTERVAL seconds (default 15).
-  2. Every page request also checks (at most once every 10 seconds per process). This is what keeps it working on
+  1. A background thread (long-running servers: python run.py, gunicorn). It checks right after the app starts (to catch up on
+     anything that was due while the app was off), then sleeps until the very next start or end time, so elections open
+     and close within about a second of the set time. It also re-checks every AUTO_CLOSE_INTERVAL seconds (default 5) and
+     wakes up at once when an election is scheduled or its dates are edited.
+  2. Every page request also checks (at most once every 2 seconds per process). This is what keeps it working on
      hosts that do not allow background threads (for example Vercel).
   3. `python close_due_elections.py` can be run from Windows Task Scheduler or a cron job.
 
@@ -20,14 +23,15 @@ import os
 import threading
 import time
 
-from app.db import fetch_all
+from app.db import fetch_all, fetch_one
 
 log = logging.getLogger(__name__)
 
 _lock = threading.Lock()
 _last_check = 0.0
 _thread_started = False
-REQUEST_THROTTLE_SECONDS = 10
+_wake = threading.Event()
+REQUEST_THROTTLE_SECONDS = 2
 
 
 def open_due_elections():
@@ -75,6 +79,21 @@ def update_election_statuses():
     return open_due_elections(), close_due_elections()
 
 
+def wake():
+    """Ask the background thread to re-check now (called when an election is scheduled or edited)."""
+    _wake.set()
+
+
+def seconds_to_next_event():
+    """Seconds until the next scheduled start or open election end, or None when nothing is coming up."""
+    row = fetch_one(
+        "SELECT MIN(secs) AS secs FROM ("
+        " SELECT TIMESTAMPDIFF(SECOND, NOW(), start_at) AS secs FROM elections WHERE status = 'scheduled' AND start_at > NOW()"
+        " UNION ALL"
+        " SELECT TIMESTAMPDIFF(SECOND, NOW(), end_at) FROM elections WHERE status = 'open' AND end_at > NOW()) t")
+    return None if row is None or row["secs"] is None else int(row["secs"])
+
+
 def check_on_request():
     """before_request hook: cheap, throttled, and never allowed to break a page."""
     from flask import request
@@ -103,17 +122,23 @@ def start_background_thread(app):
     if app.debug and os.environ.get("WERKZEUG_RUN_MAIN") != "true":
         return                                            # the Flask debug reloader starts the app twice
     _thread_started = True
-    interval = max(5, int(app.config.get("AUTO_CLOSE_INTERVAL", 15)))
+    interval = max(2, int(app.config.get("AUTO_CLOSE_INTERVAL", 5)))
     base_url = app.config.get("PUBLIC_BASE_URL") or "http://127.0.0.1:5000"
 
     def loop():
+        delay = 1.5                                       # first pass right after start-up: catch up on anything overdue
         while True:
-            time.sleep(interval)
+            _wake.wait(timeout=delay)
+            _wake.clear()
+            delay = interval
             try:
                 # a request context lets url_for() build the notification links, as in a normal click
                 with app.test_request_context("/", base_url=base_url):
                     update_election_statuses()
-            except Exception:                            # noqa: BLE001
+                    secs = seconds_to_next_event()
+                if secs is not None:                      # sleep until the next start/end moment (never longer than `interval`)
+                    delay = max(0.4, min(interval, secs + 0.5))
+            except Exception:                             # noqa: BLE001
                 log.exception("Background election status check failed")
 
     threading.Thread(target=loop, name="scmovs-auto-close", daemon=True).start()
