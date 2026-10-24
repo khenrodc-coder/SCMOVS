@@ -111,29 +111,64 @@ def voting_state(election, voted):
 
 
 def list_elections(student):
-    """Elections this voter may take part in, with their own voting state. Newest activity first."""
+    """Elections this voter may take part in, with their own voting state."""
     marks = ", ".join(["%s"] * len(VISIBLE_STATUSES))
+
     if student.get("kind") == "admin":
+        # The current Railway ballots table has no voter_user_id column.
+        # Avoid joining against a column that does not exist.
         rows = fetch_all(
-            "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
-            "(NOW() > e.end_at) AS ended, TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end, b.submitted_at AS voted_at, d.name AS department_name "
-            "FROM elections e JOIN departments d ON d.id = e.department_id "
-            "LEFT JOIN ballots b ON b.election_id = e.id AND b.voter_user_id = %s "
-            f"WHERE e.status IN ({marks}) ORDER BY e.start_at DESC, e.id DESC", (student["user_id"],) + VISIBLE_STATUSES)
+            "SELECT e.id, e.name, e.status, e.start_at, e.end_at, "
+            "(NOW() < e.start_at) AS not_started, "
+            "(NOW() > e.end_at) AS ended, "
+            "TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, "
+            "TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end, "
+            "NULL AS voted_at, d.name AS department_name "
+            "FROM elections e "
+            "JOIN departments d ON d.id = e.department_id "
+            f"WHERE e.status IN ({marks}) "
+            "ORDER BY e.start_at DESC, e.id DESC",
+            VISIBLE_STATUSES
+        )
     else:
         rows = fetch_all(
-            "SELECT e.id, e.name, e.status, e.start_at, e.end_at, (NOW() < e.start_at) AS not_started, "
-            "(NOW() > e.end_at) AS ended, TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end, b.submitted_at AS voted_at "
-            "FROM elections e LEFT JOIN ballots b ON b.election_id = e.id AND b.student_id = %s "
-            f"WHERE e.department_id = %s AND e.school_year_id = %s AND e.status IN ({marks}) "
-            "ORDER BY e.start_at DESC, e.id DESC", (student["id"], student["department_id"], student["school_year_id"]) + VISIBLE_STATUSES)
-    priority = {"open": 0, "not_started": 1, "upcoming": 2,
-                "ended": 3, "voted": 4, "closed": 5, "published": 6}
+            "SELECT e.id, e.name, e.status, e.start_at, e.end_at, "
+            "(NOW() < e.start_at) AS not_started, "
+            "(NOW() > e.end_at) AS ended, "
+            "TIMESTAMPDIFF(SECOND, NOW(), e.start_at) AS secs_to_start, "
+            "TIMESTAMPDIFF(SECOND, NOW(), e.end_at) AS secs_to_end, "
+            "b.submitted_at AS voted_at "
+            "FROM elections e "
+            "LEFT JOIN ballots b "
+            "ON b.election_id = e.id AND b.student_id = %s "
+            f"WHERE e.department_id = %s "
+            "AND e.school_year_id = %s "
+            f"AND e.status IN ({marks}) "
+            "ORDER BY e.start_at DESC, e.id DESC",
+            (
+                student["id"],
+                student["department_id"],
+                student["school_year_id"],
+            ) + VISIBLE_STATUSES
+        )
+
+    priority = {
+        "open": 0,
+        "not_started": 1,
+        "upcoming": 2,
+        "ended": 3,
+        "voted": 4,
+        "closed": 5,
+        "published": 6,
+    }
+
     for row in rows:
-        row["state"] = voting_state(row, row["voted_at"] is not None)
+        row["state"] = voting_state(
+            row, row["voted_at"] is not None
+        )
         row["state_label"], row["tone"] = STATE_LABELS[row["state"]]
         row["can_vote"] = row["state"] == "open"
-    # an election you can still vote in comes first; ties keep the newest-first order
+
     rows.sort(key=lambda r: priority[r["state"]])
     return rows
 
@@ -232,9 +267,11 @@ def cast_ballot(user, election_id, form):
     cursor = db.cursor()
     try:
         if student.get("kind") == "admin":
-            cursor.execute("INSERT INTO ballots (election_id, voter_user_id) VALUES (%s, %s)", (election_id, student["user_id"]))
+            cursor.execute("INSERT INTO ballots (election_id, voter_user_id) VALUES (%s, %s)",
+                           (election_id, student["user_id"]))
         else:
-            cursor.execute("INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
+            cursor.execute(
+                "INSERT INTO ballots (election_id, student_id) VALUES (%s, %s)", (election_id, student["id"]))
         ballot_id = cursor.lastrowid
         for position_id, candidate_id in selections.items():
             cursor.execute("INSERT INTO votes (ballot_id, election_id, position_id, candidate_id) VALUES (%s, %s, %s, %s)",
