@@ -73,12 +73,16 @@ def get_election(election_id):
 
 
 def my_ballot(election_id, voter):
-    """Participation only: when did this voter submit? (never what they chose)"""
+    """Return participation time without reading ballot choices."""
     if voter.get("kind") == "admin":
-        return fetch_one("SELECT submitted_at FROM ballots WHERE election_id = %s AND voter_user_id = %s",
-                         (election_id, voter["user_id"]))
-    return fetch_one("SELECT submitted_at FROM ballots WHERE election_id = %s AND student_id = %s",
-                     (election_id, voter["id"]))
+        # The current database schema does not support Super Admin ballots.
+        return None
+
+    return fetch_one(
+        "SELECT submitted_at FROM ballots "
+        "WHERE election_id = %s AND student_id = %s",
+        (election_id, voter["id"])
+    )
 
 
 def access_problem(election, student):
