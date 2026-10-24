@@ -374,6 +374,30 @@ def _ballot_blockers(election):
     return problems
 
 
+def open_problem(election):
+    """Return a message explaining why a scheduled election cannot open."""
+    if election["status"] != "scheduled":
+        return None
+
+    now = db_now()
+
+    if election["end_at"] <= now:
+        return "The end time has already passed. Edit the election dates first."
+
+    if election["start_at"] > now:
+        return "The scheduled start time has not been reached yet."
+
+    if election["school_year_status"] != "active":
+        return "The school year of this election is not active."
+
+    clash = _overlap(election)
+    if clash:
+        return f"This period overlaps the election '{clash['name']}'."
+
+    problems = _ballot_blockers(election)
+    return " ".join(problems) if problems else None
+
+
 def _overlap(election):
     return fetch_one(
         "SELECT name FROM elections WHERE department_id = %s AND id <> %s AND status IN ('scheduled', 'open') "
@@ -415,11 +439,13 @@ def report_open_problem(election, reason):
     cursor = db.cursor()
     try:
         created = _notify_admins(cursor, election, f"Election not opened: {election['name']}"[:150],
-                                 f"'{election['name']}' could not open automatically. {reason}"[:500],
+                                 f"'{election['name']}' could not open automatically. {reason}"[
+                                     :500],
                                  url_for("elections.detail", election_id=election["id"]))
         if created:
             log_action(None, "election_open_blocked", "elections",
-                       f"Election '{election['name']}' could not open automatically: {reason}"[:500],
+                       f"Election '{election['name']}' could not open automatically: {reason}"[
+                           :500],
                        affected_record=f"election:{election['id']}", commit=False)
         db.commit()
     except Exception:
@@ -471,7 +497,8 @@ def change_status(election, action, actor_id, automatic=False):
         if action in ("open", "close"):
             word = "opened" if action == "open" else "closed"
             _notify_admins(cursor, election, f"Voting {word}: {election['name']}"[:150],
-                           f"Voting for '{election['name']}' has {word}" + ((" automatically because the scheduled start time was reached." if action == "open" else " automatically because the end time was reached.") if automatic else "."),
+                           f"Voting for '{election['name']}' has {word}" + ((" automatically because the scheduled start time was reached." if action ==
+                                                                            "open" else " automatically because the end time was reached.") if automatic else "."),
                            url_for("elections.detail", election_id=election["id"]))
         if action == "open":
             _notify_eligible_students(cursor, election, "Voting is open",
@@ -493,7 +520,8 @@ def change_status(election, action, actor_id, automatic=False):
 
         log_action(actor_id, AUDIT_ACTIONS[action], "elections",
                    f"Election '{election['name']}': {election['status']} -> {new_status}"
-                   + ((" (opened automatically: scheduled start time reached)" if action == "open" else " (closed automatically: end time reached)") if automatic else ""),
+                   + ((" (opened automatically: scheduled start time reached)" if action ==
+                      "open" else " (closed automatically: end time reached)") if automatic else ""),
                    affected_record=f"election:{election['id']}", commit=False)
         db.commit()
         return None
