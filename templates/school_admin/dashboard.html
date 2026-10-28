@@ -3,7 +3,7 @@
 {% block title %}School Admin Dashboard{% endblock %}
 
 {% block content %}
-{# Quick actions only appear for tools the signed-in user is allowed to use. #}
+{# Keep the existing permission-aware tools, routes, and dashboard variables. #}
 {% set tools = [
     ('students.view', 'students.list_page', 'fa-user-graduate', 'Students', 'Manage student records'),
     ('elections.view', 'elections.list_page', 'fa-check-to-slot', 'Elections', 'Set up and monitor elections'),
@@ -13,97 +13,212 @@
     ('school_years.manage', 'school_years.list_page', 'fa-calendar-days', 'School years', 'Manage school years'),
     ('councils.manage', 'councils.list_page', 'fa-people-group', 'Councils', 'Manage councils and officers')
 ] %}
-<div class="flex flex-wrap items-end justify-between gap-2">
-    <div>
-        <h1 class="text-xl font-extrabold tracking-tight text-blue-950 sm:text-2xl">School Admin Dashboard</h1>
-        <p class="text-sm text-slate-600">Election and student management overview. Welcome, {{ current_user.full_name }}.</p>
-    </div>
-    <span class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900"><i class="fa-solid fa-user-shield" aria-hidden="true"></i>{{ current_user.role_display }}</span>
-</div>
 
 {% set ns = namespace(count=0) %}
-{% for perm, ep, icon, label, hint in tools %}{% if has_permission(perm) %}{% set ns.count = ns.count + 1 %}{% endif %}{% endfor %}
+{% for perm, ep, icon, label, hint in tools %}
+    {% if has_permission(perm) %}{% set ns.count = ns.count + 1 %}{% endif %}
+{% endfor %}
 
-<section class="mt-3 grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 xl:grid-cols-4" aria-label="Overview">
-    {{ stat_card('fa-user-tag', 'Role', current_user.role_display) }}
-    {{ stat_card('fa-user', 'Signed in as', current_user.full_name) }}
-    {{ stat_card('fa-screwdriver-wrench', 'Available tools', ns.count, 'Based on your permissions') }}
-    {{ stat_card('fa-shield-halved', 'Access', 'Protected', 'Role-based permissions apply') }}
-    
-</section>
-{% if charts %}
-<section class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label="Charts">
-    {% if charts.departments is defined %}
-    <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
-        {{ panel_head('fa-chart-pie', 'Students by department', 'Active and inactive, excluding archived') }}
-        <div class="flex h-64 flex-col p-3"><div class="relative min-h-0 flex-1"><canvas id="chart-sa-departments"></canvas></div><p id="chart-sa-departments-note" class="mt-1 text-center text-xs text-slate-500"></p></div>
-    </div>
-    {% endif %}
-    {% if charts.candidates is defined %}
-    <div class="rounded-lg border border-slate-200 bg-white shadow-sm">
-        {{ panel_head('fa-chart-simple', 'Candidates by review status', 'Elections that are not archived') }}
-        <div class="h-64 p-3"><div class="relative h-full"><canvas id="chart-sa-candidates"></canvas></div></div>
-    </div>
-    {% endif %}
-</section>
-{% endif %}
-<h2 class="mt-6 mb-3 text-lg font-semibold">Waiting for your review</h2>
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
-    <a href="{{ url_for('events.list_page', status='submitted') }}"
-       class="bg-white border border-slate-200 rounded-xl p-4 hover:bg-slate-50">
-        <p class="text-xs text-slate-500">Event proposals</p>
-        <p class="font-num text-2xl font-bold text-slate-800">{{ pending_events }}</p>
-        <p class="text-xs text-slate-500">submitted or under review</p>
-    </a>
-    <a href="{{ url_for('projects.list_page', status='submitted') }}"
-       class="bg-white border border-slate-200 rounded-xl p-4 hover:bg-slate-50">
-        <p class="text-xs text-slate-500">Project proposals</p>
-        <p class="font-num text-2xl font-bold text-slate-800">{{ pending_projects }}</p>
-        <p class="text-xs text-slate-500">submitted or under review</p>
-    </a>
-        <a href="{{ url_for('budgets.list_page', status='submitted') }}" class="bg-white border border-slate-200 rounded-xl p-4 hover:bg-slate-50">
-        <p class="text-xs text-slate-500">Budget requests</p>
-        <p class="font-num text-2xl font-bold text-slate-800">{{ pending_budgets }}</p>
-        <p class="text-xs text-slate-500">submitted or under review</p></a>
-    <a href="{{ url_for('expenses.list_page', status='submitted') }}" class="bg-white border border-slate-200 rounded-xl p-4 hover:bg-slate-50">
-        <p class="text-xs text-slate-500">Expenses</p>
-        <p class="font-num text-2xl font-bold text-slate-800">{{ pending_expenses }}</p>
-        <p class="text-xs text-slate-500">submitted or under review</p></a>
-</div>
-
-<div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm xl:col-span-2" aria-label="Quick actions">
-        {{ panel_head('fa-bolt', 'Quick actions', 'Shortcuts to your tools') }}
-        {% if ns.count %}
-        <div class="grid grid-cols-1 gap-2 p-3 sm:grid-cols-2 xl:grid-cols-3">
-            {% for perm, ep, icon, label, hint in tools %}
-                {% if has_permission(perm) %}{{ quick_link(url_for(ep), icon, label, hint) }}{% endif %}
-            {% endfor %}
+<div class="space-y-5">
+    <header class="flex flex-col gap-3 border-b border-slate-200 pb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+            <div class="mb-1 flex items-center gap-2">
+                <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-blue-950 text-amber-300 shadow-sm">
+                    <i class="fa-solid fa-gauge-high" aria-hidden="true"></i>
+                </span>
+                <p class="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Administration</p>
+            </div>
+            <h1 class="text-2xl font-extrabold tracking-tight text-blue-950 sm:text-3xl">School Admin Dashboard</h1>
+            <p class="mt-1 text-sm leading-6 text-slate-600">Election and student management overview. Welcome, {{ current_user.full_name }}.</p>
         </div>
-        {% else %}
-        <p class="px-4 py-8 text-center text-sm text-slate-500">No management tools are assigned to your role yet.</p>
-        {% endif %}
+        <span class="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-950">
+            <i class="fa-solid fa-user-shield text-amber-600" aria-hidden="true"></i>
+            {{ current_user.role_display }}
+        </span>
+    </header>
+
+    <section aria-label="Account and access overview">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-700">Account overview</h2>
+            <span class="text-xs text-slate-500">Based on your current session</span>
+        </div>
+        <div class="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 2xl:grid-cols-4">
+            {{ stat_card('fa-user-tag', 'Role', current_user.role_display) }}
+            {{ stat_card('fa-user', 'Signed in as', current_user.full_name) }}
+            {{ stat_card('fa-screwdriver-wrench', 'Available tools', ns.count, 'Based on your permissions') }}
+            {{ stat_card('fa-shield-halved', 'Access', 'Protected', 'Role-based permissions apply') }}
+        </div>
     </section>
 
-    <div class="grid content-start gap-3">
-        <section class="rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="My account">
-            {{ panel_head('fa-user', 'My account') }}
-            <div class="grid gap-2 p-3">
-                {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View your account details') }}
-                {{ quick_link(url_for('profile.page'), 'fa-key', 'Change password', 'Keep your account secure') }}
+    {% if charts %}
+    <section class="grid grid-cols-1 gap-4 2xl:grid-cols-2" aria-label="School administration charts">
+        {% if charts.departments is defined %}
+        <article class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-start gap-3 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white px-4 py-4 sm:px-5">
+                <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-950 text-amber-300">
+                    <i class="fa-solid fa-chart-pie" aria-hidden="true"></i>
+                </span>
+                <div class="min-w-0">
+                    <h2 class="font-bold text-blue-950">Students by Department</h2>
+                    <p class="mt-1 text-sm leading-5 text-slate-600">Active and inactive students, excluding archived records.</p>
+                </div>
             </div>
-        </section>
-        <section class="rounded-lg border border-dashed border-slate-300 bg-slate-50/60" aria-label="Coming soon">
-            {{ panel_head('fa-hourglass-half', 'Coming soon', 'Not yet available') }}
-            <div class="p-4">
-                <p class="text-xs leading-5 text-slate-500">Approvals, monitoring, and result tools are planned for a later phase.</p>
-                <ul class="mt-3 space-y-2">
-            <li class="flex items-center gap-2 text-sm text-slate-700"><i class="fa-solid fa-user-check w-4 text-center text-xs text-blue-700" aria-hidden="true"></i>Approvals</li>
-            <li class="flex items-center gap-2 text-sm text-slate-700"><i class="fa-solid fa-chart-column w-4 text-center text-xs text-blue-700" aria-hidden="true"></i>Election monitoring</li>
-            </ul>
+            <div class="p-3 sm:p-5">
+                <div class="relative h-64 sm:h-72">
+                    <canvas id="chart-sa-departments" role="img" aria-label="Pie chart showing student counts by department"></canvas>
+                </div>
+                <p id="chart-sa-departments-note" class="mt-2 text-center text-xs text-slate-500" aria-live="polite"></p>
             </div>
-        </section>
-    </div>
+        </article>
+        {% endif %}
+
+        {% if charts.candidates is defined %}
+        <article class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-start gap-3 border-b border-slate-100 bg-gradient-to-r from-amber-50 to-white px-4 py-4 sm:px-5">
+                <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-blue-950">
+                    <i class="fa-solid fa-chart-column" aria-hidden="true"></i>
+                </span>
+                <div class="min-w-0">
+                    <h2 class="font-bold text-blue-950">Candidates by Review Status</h2>
+                    <p class="mt-1 text-sm leading-5 text-slate-600">Candidate records across elections that are not archived.</p>
+                </div>
+            </div>
+            <div class="p-3 sm:p-5">
+                <div class="relative h-64 sm:h-72">
+                    <canvas id="chart-sa-candidates" role="img" aria-label="Horizontal bar chart showing candidates by review status"></canvas>
+                </div>
+            </div>
+        </article>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    <section aria-labelledby="review-queue-heading">
+        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h2 id="review-queue-heading" class="text-lg font-extrabold tracking-tight text-blue-950">Waiting for Your Review</h2>
+                <p class="text-sm text-slate-500">Open an item to review submitted or in-review records.</p>
+            </div>
+            <span class="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
+                <i class="fa-solid fa-clock text-amber-700" aria-hidden="true"></i>
+                Review queue
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
+            <a href="{{ url_for('events.list_page', status='submitted') }}"
+               class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <div class="flex items-start justify-between gap-3">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-900"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i></span>
+                    <i class="fa-solid fa-arrow-up-right-from-square mt-1 text-xs text-slate-400 transition group-hover:text-blue-700" aria-hidden="true"></i>
+                </div>
+                <p class="mt-4 text-sm font-semibold text-slate-700">Event proposals</p>
+                <p class="mt-1 text-3xl font-extrabold tracking-tight text-blue-950 tabular-nums">{{ pending_events }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+            <a href="{{ url_for('projects.list_page', status='submitted') }}"
+               class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <div class="flex items-start justify-between gap-3">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-800"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i></span>
+                    <i class="fa-solid fa-arrow-up-right-from-square mt-1 text-xs text-slate-400 transition group-hover:text-blue-700" aria-hidden="true"></i>
+                </div>
+                <p class="mt-4 text-sm font-semibold text-slate-700">Project proposals</p>
+                <p class="mt-1 text-3xl font-extrabold tracking-tight text-blue-950 tabular-nums">{{ pending_projects }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+            <a href="{{ url_for('budgets.list_page', status='submitted') }}"
+               class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <div class="flex items-start justify-between gap-3">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-900"><i class="fa-solid fa-wallet" aria-hidden="true"></i></span>
+                    <i class="fa-solid fa-arrow-up-right-from-square mt-1 text-xs text-slate-400 transition group-hover:text-blue-700" aria-hidden="true"></i>
+                </div>
+                <p class="mt-4 text-sm font-semibold text-slate-700">Budget requests</p>
+                <p class="mt-1 text-3xl font-extrabold tracking-tight text-blue-950 tabular-nums">{{ pending_budgets }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+            <a href="{{ url_for('expenses.list_page', status='submitted') }}"
+               class="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <div class="flex items-start justify-between gap-3">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-800"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span>
+                    <i class="fa-solid fa-arrow-up-right-from-square mt-1 text-xs text-slate-400 transition group-hover:text-blue-700" aria-hidden="true"></i>
+                </div>
+                <p class="mt-4 text-sm font-semibold text-slate-700">Expenses</p>
+                <p class="mt-1 text-3xl font-extrabold tracking-tight text-blue-950 tabular-nums">{{ pending_expenses }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 gap-4 2xl:grid-cols-3">
+        <article class="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm 2xl:col-span-2" aria-label="Quick actions">
+            <div class="flex items-center gap-3 border-b border-slate-100 px-4 py-4 sm:px-5">
+                <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-950 text-amber-300">
+                    <i class="fa-solid fa-bolt" aria-hidden="true"></i>
+                </span>
+                <div>
+                    <h2 class="font-bold text-blue-950">Quick Actions</h2>
+                    <p class="text-sm text-slate-500">Shortcuts to tools your role can access.</p>
+                </div>
+            </div>
+            {% if ns.count %}
+            <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
+                {% for perm, ep, icon, label, hint in tools %}
+                    {% if has_permission(perm) %}
+                        {{ quick_link(url_for(ep), icon, label, hint) }}
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="px-4 py-10 text-center text-sm text-slate-500">No management tools are assigned to your role yet.</p>
+            {% endif %}
+        </article>
+
+        <div class="grid content-start gap-4">
+            <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm" aria-label="My account">
+                <div class="flex items-center gap-3 border-b border-slate-100 px-4 py-4">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-blue-950">
+                        <i class="fa-solid fa-user" aria-hidden="true"></i>
+                    </span>
+                    <div>
+                        <h2 class="font-bold text-blue-950">My Account</h2>
+                        <p class="text-sm text-slate-500">Profile and account security.</p>
+                    </div>
+                </div>
+                <div class="grid gap-3 p-3 sm:p-4">
+                    {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View your account details') }}
+                    {{ quick_link(url_for('profile.page'), 'fa-key', 'Change password', 'Keep your account secure') }}
+                </div>
+            </article>
+
+            <article class="overflow-hidden rounded-2xl border border-dashed border-amber-300 bg-amber-50/50" aria-label="Coming soon">
+                <div class="flex items-center gap-3 border-b border-amber-100 px-4 py-4">
+                    <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-white text-amber-700">
+                        <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
+                    </span>
+                    <div>
+                        <h2 class="font-bold text-blue-950">Coming Soon</h2>
+                        <p class="text-sm text-slate-500">Planned for a later phase</p>
+                    </div>
+                </div>
+                <div class="p-4">
+                    <p class="text-sm leading-6 text-slate-600">Approvals, monitoring, and result tools are planned for a later phase.</p>
+                    <ul class="mt-3 space-y-3">
+                        <li class="flex items-center gap-3 text-sm font-medium text-slate-700">
+                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-blue-800"><i class="fa-solid fa-user-check" aria-hidden="true"></i></span>
+                            Approvals
+                        </li>
+                        <li class="flex items-center gap-3 text-sm font-medium text-slate-700">
+                            <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-white text-blue-800"><i class="fa-solid fa-chart-column" aria-hidden="true"></i></span>
+                            Election monitoring
+                        </li>
+                    </ul>
+                </div>
+            </article>
+        </div>
+    </section>
 </div>
 {% endblock %}
 
@@ -114,10 +229,38 @@
 <script id="sa-chart-data" type="application/json">{{ charts|tojson|safe }}</script>
 <script>
 (function () {
-    var C = window.SCMOVS_charts, d = JSON.parse(document.getElementById("sa-chart-data").textContent);
+    "use strict";
+
+    var dataElement = document.getElementById("sa-chart-data");
+    if (!dataElement) return;
+
+    var data;
+    try {
+        data = JSON.parse(dataElement.textContent || "{}");
+    } catch (error) {
+        console.error("Unable to read School Admin chart data.", error);
+        return;
+    }
+
+    var C = window.SCMOVS_charts;
     if (!C) return;
-    if (d.departments) C.pie("chart-sa-departments", d.departments.labels, d.departments.values, { noun: "students", emptyText: "No students yet." });
-    if (d.candidates) C.hbar("chart-sa-candidates", d.candidates.labels, [{ label: "Candidates", data: d.candidates.values, color: "#1e3a8a" }], { emptyText: "No candidates registered yet." });
+
+    if (data.departments) {
+        C.pie("chart-sa-departments", data.departments.labels, data.departments.values, {
+            noun: "students",
+            emptyText: "No students yet."
+        });
+    }
+
+    if (data.candidates) {
+        C.hbar("chart-sa-candidates", data.candidates.labels, [{
+            label: "Candidates",
+            data: data.candidates.values,
+            color: "#1e3a8a"
+        }], {
+            emptyText: "No candidates registered yet."
+        });
+    }
 })();
 </script>
 {% endif %}
