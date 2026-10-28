@@ -211,6 +211,7 @@
 
 {% block scripts %}
 {% if charts %}
+<script id="sa-chart-data" type="application/json">{{ charts|tojson }}</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 (function () {
