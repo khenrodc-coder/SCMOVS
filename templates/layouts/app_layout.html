@@ -174,7 +174,7 @@
                 {% if has_permission('budgets.request') or has_permission('budgets.approve') %}{{ nav_link(url_for('budgets.list_page'), 'wallet', 'Budgets', ep.startswith('budgets.')) }}{% endif %}
                 {% if has_permission('expenses.submit') or has_permission('expenses.approve') %}{{ nav_link(url_for('expenses.list_page'), 'credit-card', 'Expenses', ep.startswith('expenses.')) }}{% endif %}
                 {% if has_permission('documents.manage') %}{{ nav_link(url_for('documents.list_page'), 'folder-open', 'Documents', ep.startswith('documents.')) }}{% endif %}
-                {% if has_permission('meetings.manage') %}{{ nav_link(url_for('meetings.list_page'), 'chat-bubble-left-right', 'Meetings', ep.startswith('meetings.')) }}{% endif %}
+                {% if has_permission('meetings.manage') %}{{ nav_link(url_for('meetings.list_page'), 'calendar-days', 'Meetings', ep.startswith('meetings.')) }}{% endif %}
             {% endcall %}
             {% endif %}
             {% if has_permission('reports.view') %}{{ nav_link(url_for('reports.index'), 'chart-bar', 'Reports', ep.startswith('reports.')) }}{% endif %}
