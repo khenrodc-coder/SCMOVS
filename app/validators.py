@@ -179,3 +179,18 @@ def format_address(row):
     parts = [row.get("purok_street"), f"Brgy. {row['barangay']}" if row.get("barangay") else None,
              row.get("city_municipality"), PROVINCE if row.get("city_municipality") else None]
     return ", ".join(p for p in parts if p)
+
+
+def display_name(first, middle, last, full_name=None):
+    """'LASTNAME, FIRST MIDDLE' in capitals, for tables and lists.
+
+    A missing middle name leaves no extra space or comma. Older accounts that never had their name split fall back to
+    the stored full name; a one-word name is shown as it is. Returns an em dash when there is no name at all.
+    """
+    first, middle, last = clean(first), clean(middle), clean(last)
+    given = " ".join(part for part in (first, middle) if part)
+    if last and given:
+        text = f"{last}, {given}"
+    else:
+        text = last or given or clean(full_name)
+    return text.upper() if text else "\u2014"

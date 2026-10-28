@@ -3,6 +3,13 @@
 (function () {
     if (typeof Chart === "undefined") return;
     var registry = [];
+    // One formatter for every tooltip, axis and total (matches the server's |money filter: PHP peso, thousands, 2 decimals)
+    var fmt = {
+        num: function (v) { return Number(v || 0).toLocaleString("en-PH"); },
+        peso: function (v) { return "\u20B1" + Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
+        pesoAxis: function (v) { return "\u20B1" + Number(v || 0).toLocaleString("en-PH"); },
+        pct: function (part, total) { return total ? (Math.round(part * 1000 / total) / 10).toFixed(1) + "%" : "0.0%"; }
+    };
     var PALETTE = ["#1e3a8a", "#f59e0b", "#10b981", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16", "#64748b", "#f97316"];
 
     function isDark() { return document.documentElement.classList.contains("dark"); }
@@ -25,16 +32,28 @@
     }
     defaults();
 
+    function themed(color) {
+        var dark = isDark();
+        var swap = function (c) { return dark && c === "#1e3a8a" ? "#60a5fa" : (!dark && c === "#60a5fa" ? "#1e3a8a" : c); };
+        return Array.isArray(color) ? color.map(swap) : swap(color);
+    }
     function restyle(chart) {
-        var c = colors(), o = chart.options;
-        Object.keys(o.scales || {}).forEach(function (k) {
-            var sc = o.scales[k]; sc.ticks = sc.ticks || {}; sc.grid = sc.grid || {};
+        // Work on the RAW options we passed in. (Writing chart.options.* back onto itself makes Chart.js recurse forever.)
+        var c = colors(), o = chart.config.options || (chart.config.options = {});
+        var scales = o.scales || {};
+        Object.keys(scales).forEach(function (k) {
+            var sc = scales[k]; sc.ticks = sc.ticks || {}; sc.grid = sc.grid || {};
             sc.ticks.color = c.text; sc.grid.color = c.grid;
+            if (sc.title) sc.title.color = c.text;
         });
         o.plugins = o.plugins || {};
-        o.plugins.legend = o.plugins.legend || {}; o.plugins.legend.labels = Object.assign(o.plugins.legend.labels || {}, { color: c.text });
-        o.plugins.tooltip = Object.assign(o.plugins.tooltip || {}, { backgroundColor: c.tip, titleColor: c.tipText, bodyColor: c.tipText });
-        if (chart.config.type === "pie" || chart.config.type === "doughnut") chart.data.datasets.forEach(function (d) { d.borderColor = c.arc; });
+        var legend = o.plugins.legend = o.plugins.legend || {}; legend.labels = legend.labels || {}; legend.labels.color = c.text;
+        var tip = o.plugins.tooltip = o.plugins.tooltip || {};
+        tip.backgroundColor = c.tip; tip.titleColor = c.tipText; tip.bodyColor = c.tipText;
+        chart.data.datasets.forEach(function (d) {
+            ["backgroundColor", "pointBackgroundColor"].forEach(function (k) { if (d[k]) d[k] = themed(d[k]); });
+            if (chart.config.type === "pie" || chart.config.type === "doughnut") d.borderColor = c.arc; else if (d.borderColor) d.borderColor = themed(d.borderColor);
+        });
         chart.update("none");
     }
     window.addEventListener("scmovs:theme", function () { defaults(); registry.forEach(restyle); });
@@ -47,6 +66,16 @@
         if (!canvas) return null;
         if (!values.some(function (v) { return v !== 0; })) { empty(canvas, emptyText || "No data yet."); return null; }
         var chart = new Chart(canvas, config); registry.push(chart); restyle(chart); return chart;
+    }
+    // Wrap a long label onto up to 3 short lines (Chart.js draws an array as a multi-line tick)
+    function wrap(label, width) {
+        var words = String(label).split(/\s+/), lines = [], line = "";
+        words.forEach(function (w) {
+            if ((line + " " + w).trim().length > width && line) { lines.push(line); line = w; } else { line = (line + " " + w).trim(); }
+        });
+        if (line) lines.push(line);
+        if (lines.length > 3) { lines = lines.slice(0, 3); lines[2] = short(lines[2] + "\u2026", width); }
+        return lines.map(function (l) { return short(l, width + 2); });
     }
     function short(label, n) { label = String(label); return label.length > n ? label.slice(0, n - 1) + "\u2026" : label; }
     function pct(v, total) { return total ? Math.round(v * 1000 / total) / 10 : 0; }
@@ -97,9 +126,36 @@
         }, values, opts.emptyText || "No students yet.");
     }
 
-    window.SCMOVS_charts = { make: make, hbar: hbar, pie: pie, palette: PALETTE, vbar: function (id, labels, series, opts) {
+    function axisTitle(text) { return text ? { display: true, text: text, font: { weight: "600" } } : { display: false }; }
+
+    /* Vertical bar chart (one or more series side by side). opts: xTitle, yTitle, yTicks, tooltip, emptyText, maxLabel */
+    function vbar(id, labels, series, opts) {
         opts = opts || {}; var all = []; series.forEach(function (s) { all = all.concat(s.data); });
-        return make(id, { type: "bar", data: { labels: labels, datasets: series.map(function (s) { return { label: s.label, data: s.data, backgroundColor: s.color }; }) },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: series.length > 1 || !!opts.legend } , tooltip: { callbacks: opts.tooltip || {} } },
-                scales: { y: { beginAtZero: true, ticks: opts.yTicks || { precision: 0 } } } } }, all, opts.emptyText); } };
+        return make(id, { type: "bar",
+            data: { labels: labels, datasets: series.map(function (s) { return { label: s.label, data: s.data, backgroundColor: s.color, maxBarThickness: 48 }; }) },
+            options: { responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: series.length > 1 || !!opts.legend, position: "bottom" },
+                           tooltip: { callbacks: Object.assign({ title: function (items) { return String(labels[items[0].dataIndex]); } }, opts.tooltip || {}) } },
+                scales: { x: { title: axisTitle(opts.xTitle), grid: { display: false },
+                               ticks: { autoSkip: false, maxRotation: 0, callback: function (v) { return wrap(this.getLabelForValue(v), opts.maxLabel || 13); } } },
+                          y: { beginAtZero: true, title: axisTitle(opts.yTitle), ticks: opts.yTicks || { precision: 0 } } } } }, all, opts.emptyText);
+    }
+
+    /* Line chart over time. series = [{label, data, color}]. opts: xTitle, yTitle, yTicks, tooltip, emptyText */
+    function line(id, labels, series, opts) {
+        opts = opts || {}; var all = []; series.forEach(function (s) { all = all.concat(s.data); });
+        return make(id, { type: "line",
+            data: { labels: labels, datasets: series.map(function (s) {
+                return { label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.color, pointBackgroundColor: s.color, borderWidth: 2.5, cubicInterpolationMode: "monotone", pointRadius: 3.5, pointHoverRadius: 6, fill: false };
+            }) },
+            options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+                plugins: { legend: { position: "bottom" }, tooltip: { callbacks: opts.tooltip || {} } },
+                scales: { x: { title: axisTitle(opts.xTitle), grid: { display: false }, ticks: { autoSkip: true, maxRotation: 0 } },
+                          y: { beginAtZero: true, title: axisTitle(opts.yTitle), ticks: opts.yTicks || { precision: 0 } } } } }, all, opts.emptyText);
+    }
+
+    // Resize charts when the layout width changes without a window resize (sidebar opened / closed / collapsed)
+    window.addEventListener("scmovs:layout", function () { registry.forEach(function (ch) { ch.resize(); }); });
+
+    window.SCMOVS_charts = { make: make, hbar: hbar, pie: pie, vbar: vbar, line: line, fmt: fmt, palette: PALETTE };
 })();

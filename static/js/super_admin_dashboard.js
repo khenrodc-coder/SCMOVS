@@ -2,32 +2,33 @@
 (function () {
     var C = window.SCMOVS_charts, data = window.SCMOVS_CHARTS;
     if (!C || !data) return;
-    var money = function (v) { return "\u20B1" + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2 }); };
+    var F = C.fmt;
 
-    // 1) Election participation: horizontal bars (election names are long). Aggregate counts only.
-    C.hbar("chart-participation", data.participation.labels, [
-        { label: "Eligible voters", data: data.participation.eligible, color: "#93c5fd" },
-        { label: "Votes cast", data: data.participation.cast, color: "#1e3a8a" }
-    ], { emptyText: "No election has opened yet.", maxLabel: 30, tooltip: {
-        afterLabel: function (c) {
-            if (c.dataset.label !== "Votes cast") return "";
-            var el = data.participation.eligible[c.dataIndex];
-            return el ? (Math.round(c.parsed.x * 1000 / el) / 10) + "% of eligible voters" : "";
-        } } });
+    // 1) Budget and Expenses Monitoring: line chart over time (approved amounts per month)
+    var t = data.budget_trend;
+    C.line("chart-budget-trend", t.labels, [
+        { label: "Approved budgets", data: t.budgets, color: "#1e3a8a" },
+        { label: "Approved expenses", data: t.expenses, color: "#ef4444" }
+    ], {
+        xTitle: "Month", yTitle: "Amount (\u20B1)", yTicks: { callback: F.pesoAxis },
+        tooltip: { label: function (c) { return " " + c.dataset.label + ": " + F.peso(c.parsed.y); } },
+        emptyText: "No approved budgets or expenses yet."
+    });
 
-    // 2) Students by department: pie with counts + percentages
-    C.pie("chart-departments", data.departments.labels, data.departments.values, { noun: "students", emptyText: "No students yet." });
-
-    // 3) Events and projects by status: horizontal bars
-    C.hbar("chart-status", data.status.labels, [
-        { label: "Events", data: data.status.events, color: "#2563eb" },
-        { label: "Projects", data: data.status.projects, color: "#f59e0b" }
-    ], { emptyText: "No events or projects yet." });
-
-    // 4) Budget vs expenses (three bars, stays vertical)
-    C.vbar("chart-finance", data.finance.labels, [{ label: "Amount", data: data.finance.values, color: "#1e3a8a" }], {
-        yTicks: { callback: function (v) { return "\u20B1" + Number(v).toLocaleString(); } },
-        tooltip: { label: function (c) { return " " + money(c.parsed.y); } }, emptyText: "No approved budgets yet." });
-    var fin = window.Chart && Chart.getChart("chart-finance");
-    if (fin) { fin.data.datasets[0].backgroundColor = ["#1e3a8a", "#ef4444", "#10b981"]; fin.update("none"); }
+    // 2) Open Election Voting Participation: vertical bars, voted vs. not yet voted
+    var p = data.open_participation;
+    C.vbar("chart-open-participation", p.labels, [
+        { label: "Voted", data: p.voted, color: "#1e3a8a" },
+        { label: "Not yet voted", data: p.not_voted, color: "#cbd5e1" }
+    ], {
+        xTitle: "Open election", yTitle: "Students", maxLabel: 18,
+        tooltip: {
+            label: function (c) { return " " + c.dataset.label + ": " + F.num(c.parsed.y); },
+            afterBody: function (items) {
+                var i = items[0].dataIndex;
+                return "Participation: " + F.pct(p.voted[i], p.eligible[i]) + " of " + F.num(p.eligible[i]) + " eligible";
+            }
+        },
+        emptyText: p.elections.length ? "The open election has no eligible students and no votes yet." : "No election is open right now."
+    });
 })();

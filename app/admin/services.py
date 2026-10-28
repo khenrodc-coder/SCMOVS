@@ -11,10 +11,9 @@ PER_PAGE = 10
 
 # Whitelist for sorting: the browser sends a KEY, we only ever use the VALUE in SQL.
 SORT_COLUMNS = {
-    "name": "u.full_name",
+    "name": "COALESCE(NULLIF(u.last_name, ''), u.full_name)",       # the Name column is shown as LASTNAME, FIRST MIDDLE
     "username": "u.username",
     "role": "r.display_name",
-    "last_login": "u.last_login_at",
     "created": "u.created_at",
 }
 
@@ -106,51 +105,9 @@ def get_dashboard_stats():
         "available": approved_budgets - approved_expenses,
     }
 
-    # ---- chart data ----
-    dept_rows = fetch_all(
-        "SELECT d.name, COUNT(s.id) AS total FROM departments d "
-        "LEFT JOIN students s ON s.department_id = d.id AND s.status <> 'archived' "
-        "WHERE d.is_active = 1 GROUP BY d.id, d.name ORDER BY d.name")
-
-    election_rows = fetch_all(
-        "SELECT e.name, p.eligible_voters, p.votes_cast "
-        "FROM elections e JOIN v_election_participation p ON p.election_id = e.id "
-        "WHERE e.status NOT IN ('draft', 'scheduled', 'archived') "
-        "ORDER BY e.start_at DESC LIMIT 6")
-
-    event_counts = {
-        str(_row_value(r, "status", "")): int(str(_row_value(r, "n", 0)))
-        for r in fetch_all(
-            "SELECT status, COUNT(*) AS n FROM events WHERE is_archived = 0 GROUP BY status")
-    }
-    project_counts = {
-        str(_row_value(r, "status", "")): int(str(_row_value(r, "n", 0)))
-        for r in fetch_all(
-            "SELECT status, COUNT(*) AS n FROM projects WHERE is_archived = 0 GROUP BY status")
-    }
-    status_order = ["draft", "submitted", "under_review",
-                    "approved", "rejected", "in_progress", "completed"]
-
-    charts = {
-        "departments": {
-            "labels": [str(_row_value(r, "name", "")) for r in dept_rows],
-            "values": [int(str(_row_value(r, "total", 0))) for r in dept_rows],
-        },
-        "participation": {
-            "labels": [str(_row_value(r, "name", "")) for r in election_rows],
-            "eligible": [int(str(_row_value(r, "eligible_voters", 0))) for r in election_rows],
-            "cast": [int(str(_row_value(r, "votes_cast", 0))) for r in election_rows],
-        },
-        "status": {
-            "labels": [_pretty(s) for s in status_order],
-            "events": [event_counts.get(s, 0) for s in status_order],
-            "projects": [project_counts.get(s, 0) for s in status_order],
-        },
-        "finance": {
-            "labels": ["Approved budgets", "Approved expenses", "Available balance"],
-            "values": [finance["approved_budgets"], finance["approved_expenses"], finance["available"]],
-        },
-    }
+    # ---- Department Statistics panel + the two charts (all from the database; voting only from the aggregate view) ----
+    charts = {"budget_trend": _budget_trend(finance), "open_participation": _open_participation()}
+    department_stats = _department_stats()
 
     recent_logins = fetch_all(
         "SELECT u.full_name, u.username, a.created_at, a.ip_address "
@@ -166,9 +123,111 @@ def get_dashboard_stats():
         "stats": stats,
         "finance": finance,
         "charts": charts,
+        "department_stats": department_stats,
         "recent_logins": recent_logins,
         "recent_actions": recent_actions,
     }
+
+
+# ====================================================== dashboard panels
+
+# How an election's status is labelled on a Department Statistics card
+_STATUS_LABELS = {"open": "OPEN", "scheduled": "SCHEDULED", "closed": "CLOSED", "pending_verification": "VERIFYING",
+                  "verified": "VERIFIED", "published": "PUBLISHED"}
+
+
+def _rate(part, whole):
+    """Participation rate in percent, one decimal. 0.0 when nobody is eligible (never divides by zero)."""
+    return round(part * 100 / whole, 1) if whole else 0.0
+
+
+def _department_stats():
+    """One entry per active department: the election to show (open first, then scheduled, then the most recent finished
+    one) with eligible voters, votes cast and the participation rate. Drafts and archived elections are not shown."""
+    rows = fetch_all(
+        "SELECT d.id, d.name, e.id AS election_id, e.name AS election_name, e.status, "
+        "       p.eligible_voters, p.votes_cast "
+        "FROM departments d "
+        "LEFT JOIN elections e ON e.id = ("
+        "    SELECT e2.id FROM elections e2 WHERE e2.department_id = d.id "
+        "    AND e2.status IN ('open', 'scheduled', 'closed', 'pending_verification', 'verified', 'published') "
+        "    ORDER BY CASE e2.status WHEN 'open' THEN 0 WHEN 'scheduled' THEN 1 ELSE 2 END, e2.start_at DESC, e2.id DESC LIMIT 1) "
+        "LEFT JOIN v_election_participation p ON p.election_id = e.id "
+        "WHERE d.is_active = 1 ORDER BY d.id")
+    out = []
+    for r in rows:
+        status = _row_value(r, "status")
+        eligible = int(str(_row_value(r, "eligible_voters", 0) or 0))
+        cast = int(str(_row_value(r, "votes_cast", 0) or 0))
+        out.append({
+            "name": str(_row_value(r, "name", "")),
+            "election_name": _row_value(r, "election_name"),
+            "status": status,                                           # None when the department has no election yet
+            "status_label": _STATUS_LABELS.get(str(status), "NO ELECTION"),
+            "eligible": eligible, "cast": cast, "rate": _rate(cast, eligible),
+        })
+    return out
+
+
+def _open_participation():
+    """Open elections only: how many have voted and how many have not yet (never a ballot's content)."""
+    rows = fetch_all(
+        "SELECT e.name, d.name AS department, p.eligible_voters, p.votes_cast "
+        "FROM elections e JOIN departments d ON d.id = e.department_id "
+        "JOIN v_election_participation p ON p.election_id = e.id "
+        "WHERE e.status = 'open' ORDER BY e.end_at, e.id")
+    items = []
+    for r in rows:
+        eligible = int(str(_row_value(r, "eligible_voters", 0) or 0))
+        voted = int(str(_row_value(r, "votes_cast", 0) or 0))
+        items.append({"election": str(_row_value(r, "name", "")), "department": str(_row_value(r, "department", "")),
+                      "eligible": eligible, "voted": voted, "not_voted": max(eligible - voted, 0), "rate": _rate(voted, eligible)})
+    return {"elections": items,
+            "labels": [i["election"] for i in items],
+            "voted": [i["voted"] for i in items],
+            "not_voted": [i["not_voted"] for i in items],
+            "eligible": [i["eligible"] for i in items],
+            "rates": [i["rate"] for i in items]}
+
+
+def _budget_trend(finance):
+    """Approved budgets and approved expenses per month for a line chart.
+
+    The window is the last 12 months, but starts no earlier than the first month that has data (and shows at least the
+    last 6 months), so a new system is not drawn as a year of zeros. Budgets are counted in the month they were approved
+    (reviewed_at); expenses in the month they were spent (expense_date).
+    """
+    today = fetch_one("SELECT CURDATE() AS d")["d"]
+    end = (today.year, today.month)
+
+    def months_back(n):
+        y, m = end[0], end[1] - n
+        while m < 1:
+            y, m = y - 1, m + 12
+        return (y, m)
+
+    budgets = {str(_row_value(r, "ym")): float(_row_value(r, "total", 0) or 0) for r in fetch_all(
+        "SELECT DATE_FORMAT(COALESCE(reviewed_at, submitted_at, created_at), '%Y-%m') AS ym, SUM(approved_amount) AS total "
+        "FROM budgets WHERE status = 'approved' GROUP BY ym")}
+    expenses = {str(_row_value(r, "ym")): float(_row_value(r, "total", 0) or 0) for r in fetch_all(
+        "SELECT DATE_FORMAT(expense_date, '%Y-%m') AS ym, SUM(amount) AS total FROM expenses WHERE status = 'approved' GROUP BY ym")}
+
+    first_data = min(list(budgets) + list(expenses), default=None)
+    earliest_allowed = months_back(11)
+    if first_data:
+        fy, fm = int(first_data[:4]), int(first_data[5:7])
+        start = min(max((fy, fm), earliest_allowed), months_back(5))
+    else:
+        start = months_back(5)
+
+    labels, keys, y, m = [], [], start[0], start[1]
+    while (y, m) <= end:
+        keys.append(f"{y:04d}-{m:02d}")
+        labels.append(f"{['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1]} {y}")
+        y, m = (y, m + 1) if m < 12 else (y + 1, 1)
+    return {"labels": labels, "budgets": [round(budgets.get(k, 0.0), 2) for k in keys],
+            "expenses": [round(expenses.get(k, 0.0), 2) for k in keys],
+            "totals": {"budgets": finance["approved_budgets"], "expenses": finance["approved_expenses"], "available": finance["available"]}}
 
 
 # ========================================================== user queries
@@ -230,8 +289,8 @@ def list_users(args):
     if q:
         like = "%" + _escape_like(q) + "%"
         where.append(
-            "(u.full_name LIKE %s OR u.username LIKE %s OR u.email LIKE %s)")
-        params.extend([like, like, like])
+            "(u.full_name LIKE %s OR u.last_name LIKE %s OR u.username LIKE %s OR u.email LIKE %s)")
+        params.extend([like, like, like, like])
     if role:
         where.append("r.name = %s")
         params.append(role)
@@ -255,14 +314,14 @@ def list_users(args):
 
     # SORT_COLUMNS[sort] is from our own whitelist, never from the browser text
     users = fetch_all(
-        "SELECT u.id, u.username, u.email, u.full_name, u.photo_path, u.is_active, u.last_login_at, "
+        "SELECT u.id, u.username, u.email, u.full_name, u.first_name, u.middle_name, u.last_name, u.photo_path, u.is_active, "
         "       r.display_name AS role_display, "
         "       (u.locked_until IS NOT NULL AND u.locked_until > NOW()) AS is_locked, "
         "       (s.id IS NOT NULL) AS has_student "
         "FROM users u JOIN roles r ON r.id = u.role_id "
         "LEFT JOIN students s ON s.user_id = u.id "
         + where_sql +
-        f" ORDER BY {SORT_COLUMNS[sort]} {direction}, u.id ASC LIMIT %s OFFSET %s",
+        f" ORDER BY {SORT_COLUMNS[sort]} {direction}, u.first_name {direction}, u.id ASC LIMIT %s OFFSET %s",
         tuple(params) + (PER_PAGE, (page - 1) * PER_PAGE),
     )
 

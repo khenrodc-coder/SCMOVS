@@ -53,6 +53,34 @@
         .scmovs-modal-dialog { width: 100%; max-width: 32rem; max-height: calc(100vh - 2rem); overflow-y: auto; border-radius: .9rem;
             background: #fff; color: #1e293b; box-shadow: 0 25px 50px -12px rgba(0,0,0,.4); }
         .scmovs-modal-dialog.wide, .scmovs-modal-dialog:has(.modal-wide) { max-width: 40rem; }
+
+        /* A scrolling card must also be the anchor for absolutely positioned children (such as the screen-reader-only labels
+           inside table buttons). Otherwise those escape the card's clipping and stretch the whole page sideways. */
+        .overflow-x-auto, .overflow-auto { position: relative; }
+
+        /* ---- Phone layout (under 768px) ---- */
+        @media (max-width: 767px) {
+            table.rt-stack { display: block; border: 0; }
+            table.rt-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+            table.rt-stack tbody { display: block; }
+            table.rt-stack tbody > tr { display: block; margin: .6rem; padding: .35rem .8rem; border: 1px solid #e2e8f0; border-radius: .75rem; background: #fff; }
+            table.rt-stack tbody > tr.rt-empty { border: 0; background: transparent; }
+            table.rt-stack tbody > tr > td { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%;
+                padding: .4rem 0 !important; border: 0; text-align: right; white-space: normal !important; }
+            table.rt-stack tbody > tr > td::before { content: attr(data-label); flex: 0 0 34%; max-width: 34%; text-align: left;
+                font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+            table.rt-stack tbody > tr > td[data-label=""]::before { display: none; }
+            table.rt-stack tbody > tr > td > * { min-width: 0; text-align: right; }
+            table.rt-stack tbody > tr > td + td { border-top: 1px solid #f1f5f9; }
+        }
+        /* Modals: always inside the screen, buttons easy to reach on a phone */
+        .scmovs-modal-dialog { max-height: calc(100vh - 1rem); max-height: calc(100dvh - 1rem); }
+        @media (max-width: 479px) {
+            .scmovs-modal-overlay { padding: .5rem; align-items: flex-end; }
+            .scmovs-modal-dialog { border-radius: 1rem; }
+            .scmovs-modal-dialog form > div:last-child { flex-direction: column-reverse; }
+            .scmovs-modal-dialog form > div:last-child > button { width: 100%; }
+        }
         .field-invalid { border-color: #dc2626 !important; }
         .field-invalid:focus { box-shadow: 0 0 0 4px rgba(220, 38, 38, .2) !important; }
         @media (prefers-reduced-motion: no-preference) { .scmovs-modal-dialog { animation: modal-in .16s ease-out; } }
@@ -114,6 +142,7 @@
     <script src="{{ url_for('static', filename='js/icon_select.js') }}"></script>
     <script src="{{ url_for('static', filename='js/form_rules.js') }}"></script>
     <script src="{{ url_for('static', filename='js/select_icons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/responsive_tables.js') }}"></script>
 
     {% block scripts %}{% endblock %}
 

@@ -138,11 +138,6 @@
         </div>
 
         <nav class="flex-1 space-y-1 overflow-y-auto px-2 py-3" aria-label="Main navigation">
-            {% if has_permission('announcements.manage') %}
-    {{ nav_link(url_for('announcements.manage_list'), 'chat-bubble-left-right', 'Announcements', ep.startswith('announcements.manage')) }}
-{% elif current_user.role in ('student', 'council_officer') %}
-    {{ nav_link(url_for('announcements.list_page'), 'chat-bubble-left-right', 'Announcements', ep in ('announcements.list_page', 'announcements.read')) }}
-{% endif %}
             {% if has_permission('voting.cast') and current_user.role in ('student', 'council_officer', 'super_admin') %}{{ nav_link(url_for('voting.my_elections'), 'clipboard-document-check', 'My Elections', ep.startswith('voting.')) }}{% endif %}
             {{ nav_link(url_for('dashboard.home'), 'squares-2x2', 'Dashboard', ep == 'dashboard.home' or ep.endswith('_home')) }}
             {% if has_permission('users.manage') or has_permission('students.view') or has_permission('departments.manage') or has_permission('school_years.manage') %}
@@ -154,11 +149,9 @@
             {% endcall %}
             {% endif %}
             {% if has_permission('elections.view') or has_permission('candidates.manage') or has_permission('positions.manage') %}
-            {% call nav_group('elections', 'clipboard-document-check', 'Elections', ep.startswith('elections.') or ep.startswith('candidates.') or ep.startswith('positions.') or ep.startswith('results.admin')) %}
+            {% call nav_group('elections', 'clipboard-document-check', 'Elections', ep.startswith('elections.') or ep.startswith('candidates.') or ep.startswith('positions.')) %}
                 {% if has_permission('elections.view') %}{{ nav_link(url_for('elections.list_page'), 'clipboard-document-check', 'Elections', ep.startswith('elections.')) }}{% endif %}
-{% if has_permission('results.view_published') and current_user.role in ('student', 'council_officer') %}{{ nav_link(url_for('results.list_page'), 'clipboard-document-list', 'Results', ep in ('results.list_page', 'results.view')) }}{% endif %}
                 {% if has_permission('candidates.manage') %}{{ nav_link(url_for('candidates.list_page'), 'identification', 'Candidates', ep.startswith('candidates.')) }}{% endif %}
-                {% if has_permission('results.verify') or has_permission('elections.publish') %}{{ nav_link(url_for('results.admin_list'), 'clipboard-document-list', 'Results', ep.startswith('results.admin')) }}{% endif %}
                 {% if has_permission('positions.manage') %}{{ nav_link(url_for('positions.list_page'), 'briefcase', 'Positions', ep.startswith('positions.')) }}{% endif %}
             {% endcall %}
             {% endif %}
@@ -174,7 +167,7 @@
                 {% if has_permission('budgets.request') or has_permission('budgets.approve') %}{{ nav_link(url_for('budgets.list_page'), 'wallet', 'Budgets', ep.startswith('budgets.')) }}{% endif %}
                 {% if has_permission('expenses.submit') or has_permission('expenses.approve') %}{{ nav_link(url_for('expenses.list_page'), 'credit-card', 'Expenses', ep.startswith('expenses.')) }}{% endif %}
                 {% if has_permission('documents.manage') %}{{ nav_link(url_for('documents.list_page'), 'folder-open', 'Documents', ep.startswith('documents.')) }}{% endif %}
-                {% if has_permission('meetings.manage') %}{{ nav_link(url_for('meetings.list_page'), 'calendar-days', 'Meetings', ep.startswith('meetings.')) }}{% endif %}
+                {% if has_permission('meetings.manage') %}{{ nav_link(url_for('meetings.list_page'), 'chat-bubble-left-right', 'Meetings', ep.startswith('meetings.')) }}{% endif %}
             {% endcall %}
             {% endif %}
             {% if has_permission('reports.view') %}{{ nav_link(url_for('reports.index'), 'chart-bar', 'Reports', ep.startswith('reports.')) }}{% endif %}
@@ -203,6 +196,7 @@
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">
+        <div class="h-1 bg-amber-400" aria-hidden="true"></div>
         <header class="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-200 bg-white/95 px-4 py-2 backdrop-blur">
             <button id="sidebar-toggle" type="button" aria-label="Open menu" title="Open menu"
                     class="grid h-10 w-10 place-items-center rounded-lg border border-slate-200 text-lg text-blue-950 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-200 md:hidden">
@@ -295,6 +289,8 @@
         root.classList.toggle("sb-collapsed");
         try { localStorage.setItem("scmovs.sidebar", root.classList.contains("sb-collapsed") ? "collapsed" : "expanded"); } catch (e) {}
         syncCollapse();
+        // The page width changes without a window resize: tell charts (and anything else listening) once the animation ends
+        setTimeout(function () { window.dispatchEvent(new Event("scmovs:layout")); }, 380);
     });
 
     // Collapsible nav groups: the group with the current page is always open; other groups remember their state.

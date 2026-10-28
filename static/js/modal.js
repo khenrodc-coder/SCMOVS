@@ -98,7 +98,7 @@
             .then(function (html) {
                 var doc = new DOMParser().parseFromString(html, "text/html");
                 var fresh = doc.getElementById("list-region");
-                if (fresh) { region.innerHTML = fresh.innerHTML; return true; }
+                if (fresh) { region.innerHTML = fresh.innerHTML; if (window.SCMOVS_labelTables) window.SCMOVS_labelTables(region); return true; }
                 return false;
             }).catch(function () { return false; });
     }

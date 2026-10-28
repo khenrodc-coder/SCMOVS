@@ -1,0 +1,148 @@
+{% extends "layouts/app_layout.html" %}
+{% block title %}Super Admin Dashboard{% endblock %}
+
+{# Compact summary card: icon + label + value (+ optional note). highlight=True gives the amber attention style. #}
+{% macro stat_card(icon, label, value, note='', highlight=False) %}
+{% set _sv = value|string %}{% set _num = value is number or (_sv|length > 0 and (_sv[0] in '0123456789$₱' or _sv.startswith('PHP'))) %}
+<div class="flex items-center gap-3 rounded-lg border px-3 py-2.5 shadow-sm {{ 'border-amber-400 bg-amber-50' if highlight else 'border-slate-200 bg-white' }}" {% if note %}title="{{ note }}"{% endif %}>
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm {{ 'bg-amber-100 text-amber-700' if highlight else 'bg-blue-50 text-blue-900' }}"><i class="fa-solid {{ icon }}" aria-hidden="true"></i></span>
+    <div class="min-w-0">
+        <p class="truncate text-xs font-semibold text-slate-500">{{ label }}</p>
+        <p class="truncate text-xl font-extrabold leading-tight tracking-tight text-slate-900{{ ' font-num' if _num }}">{{ value }}</p>
+        {% if note %}<p class="truncate text-[11px] text-slate-500">{{ note }}</p>{% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro tab_btn(id, panel, label, selected=False) %}
+<button type="button" role="tab" id="{{ id }}" aria-controls="{{ panel }}" aria-selected="{{ 'true' if selected else 'false' }}" tabindex="{{ 0 if selected else -1 }}"
+        class="-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 {{ 'border-blue-900 text-blue-900' if selected else 'border-transparent text-slate-500 hover:text-blue-900' }}">{{ label }}</button>
+{% endmacro %}
+
+{% block content %}
+<div class="mx-auto flex w-full max-w-[1400px] flex-col gap-3 xl:h-[calc(100vh-7.75rem)] xl:min-h-[520px]">
+
+    <div class="flex flex-wrap items-end justify-between gap-2">
+        <div>
+            <h1 class="text-xl font-extrabold tracking-tight text-blue-950 sm:text-2xl">Super Admin Dashboard</h1>
+            <p class="text-sm text-slate-600">System overview and administrative monitoring. Welcome, {{ current_user.full_name }}.</p>
+        </div>
+        <span class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i>School year: {{ stats.active_school_year }}</span>
+    </div>
+
+    <section class="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 md:grid-cols-4" aria-label="Statistics">
+        {{ stat_card('fa-users', 'Total users', stats.total_users, stats.active_users ~ ' active') }}
+        {{ stat_card('fa-check-to-slot', 'Active elections', stats.active_elections) }}
+        {{ stat_card('fa-calendar-days', 'Events', stats.events) }}
+        {{ stat_card('fa-diagram-project', 'Projects', stats.projects) }}
+        {{ stat_card('fa-hourglass-half', 'Pending candidates', stats.pending_candidates, 'of ' ~ stats.candidates ~ ' registered', highlight=stats.pending_candidates) }}
+        {{ stat_card('fa-wallet', 'Approved budgets', finance.approved_budgets|money) }}
+        {{ stat_card('fa-receipt', 'Approved expenses', finance.approved_expenses|money) }}
+        {{ stat_card('fa-scale-balanced', 'Available balance', finance.available|money, 'Budgets minus expenses') }}
+    </section>
+
+    <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-3">
+
+        <section class="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm xl:col-span-2" aria-label="Charts" data-tabs>
+            <div role="tablist" aria-label="Charts" class="flex gap-1 overflow-x-auto border-b border-slate-200 px-3">
+                {{ tab_btn('tab-participation', 'panel-participation', 'Election participation', True) }}
+                {{ tab_btn('tab-departments', 'panel-departments', 'Students by department') }}
+                {{ tab_btn('tab-status', 'panel-status', 'Events &amp; projects'|safe) }}
+                {{ tab_btn('tab-finance', 'panel-finance', 'Budget vs expenses') }}
+            </div>
+            <div class="min-h-[280px] flex-1 p-3 xl:min-h-0">
+                <div id="panel-participation" role="tabpanel" aria-labelledby="tab-participation" class="h-full"><div class="relative h-full"><canvas id="chart-participation"></canvas></div></div>
+                <div id="panel-departments" role="tabpanel" aria-labelledby="tab-departments" class="hidden h-full"><div class="flex h-full flex-col"><div class="relative min-h-0 flex-1"><canvas id="chart-departments"></canvas></div><p id="chart-departments-note" class="mt-1 text-center text-xs text-slate-500"></p></div></div>
+                <div id="panel-status" role="tabpanel" aria-labelledby="tab-status" class="hidden h-full"><div class="relative h-full"><canvas id="chart-status"></canvas></div></div>
+                <div id="panel-finance" role="tabpanel" aria-labelledby="tab-finance" class="hidden h-full"><div class="relative h-full"><canvas id="chart-finance"></canvas></div></div>
+            </div>
+        </section>
+
+        <section class="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="System activity" data-tabs>
+            <div role="tablist" aria-label="System activity" class="flex gap-1 border-b border-slate-200 px-3">
+                {{ tab_btn('tab-actions', 'panel-actions', 'Recent actions', True) }}
+                {{ tab_btn('tab-logins', 'panel-logins', 'Recent logins') }}
+            </div>
+            <div class="max-h-96 min-h-0 flex-1 overflow-y-auto xl:max-h-none">
+                <div id="panel-actions" role="tabpanel" aria-labelledby="tab-actions" class="p-4">
+                    {% if recent_actions %}
+                    <ol class="relative ml-2 border-l border-slate-200">
+                        {% for row in recent_actions %}
+                        <li class="relative pb-4 pl-5 last:pb-0">
+                            <span class="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-4 ring-white" aria-hidden="true"></span>
+                            <p class="text-sm font-semibold text-slate-900">{{ row.action|replace('_', ' ')|title }}</p>
+                            <p class="text-xs text-slate-500">{{ row.description }}</p>
+                            <p class="mt-0.5 text-xs font-semibold text-amber-600">{{ row.created_at|dt }} <span class="font-normal text-slate-400">&middot; {{ row.full_name or 'Unknown' }}</span></p>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <p class="py-6 text-center text-sm text-slate-500">No administrative actions recorded yet.</p>
+                    {% endif %}
+                </div>
+                <div id="panel-logins" role="tabpanel" aria-labelledby="tab-logins" class="hidden">
+                    {% if recent_logins %}
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900"><tr>
+                            <th class="px-4 py-2">User</th><th class="px-4 py-2">When</th><th class="px-4 py-2">IP</th>
+                        </tr></thead>
+                        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
+                        {% for row in recent_logins %}
+                            <tr>
+                                <td class="px-4 py-2">{{ row.full_name }} <span class="text-slate-500">({{ row.username }})</span></td>
+                                <td class="whitespace-nowrap px-4 py-2 text-xs">{{ row.created_at|dt }}</td>
+                                <td class="px-4 py-2 text-xs">{{ row.ip_address or '-' }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="px-4 py-6 text-center text-sm text-slate-500">No logins recorded yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script id="scmovs-charts-data" type="application/json">
+    {{ charts|tojson|safe }}
+</script>
+<script>
+    window.SCMOVS_CHARTS = JSON.parse(
+        document.getElementById('scmovs-charts-data').textContent
+    );
+</script>
+<script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
+<script src="{{ url_for('static', filename='js/super_admin_dashboard.js') }}"></script>
+<script>
+    // Tabs for the analytics and activity panels (one visible at a time so the dashboard fits the screen).
+    document.querySelectorAll('[data-tabs]').forEach(function (group) {
+        var tabs = group.querySelectorAll('[role="tab"]');
+        function show(tab) {
+            tabs.forEach(function (t) {
+                var on = t === tab;
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+                t.tabIndex = on ? 0 : -1;
+                t.classList.toggle('border-blue-900', on); t.classList.toggle('text-blue-900', on);
+                t.classList.toggle('border-transparent', !on); t.classList.toggle('text-slate-500', !on);
+                var panel = document.getElementById(t.getAttribute('aria-controls'));
+                if (panel) panel.classList.toggle('hidden', !on);
+            });
+            var shown = document.getElementById(tab.getAttribute('aria-controls'));
+            if (shown && window.Chart) shown.querySelectorAll('canvas').forEach(function (c) { var ch = Chart.getChart(c); if (ch) ch.resize(); });
+        }
+        tabs.forEach(function (t, i) {
+            t.addEventListener('click', function () { show(t); });
+            t.addEventListener('keydown', function (e) {
+                var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
+                if (n === null) return;
+                var next = tabs[(n + tabs.length) % tabs.length]; show(next); next.focus();
+            });
+        });
+    });
+</script>
+{% endblock %}

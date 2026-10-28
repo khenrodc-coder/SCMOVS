@@ -1,5 +1,4 @@
 import os
-from importlib import import_module
 from flask import Flask, g
 from flask_wtf.csrf import CSRFProtect
 
@@ -90,16 +89,13 @@ def create_app():
     app.register_blueprint(backups_bp)
 
     from app.locations import PLACES, PROVINCE
+    from app.validators import display_name
     from app.media import media_bp, photo_url
     from app.profile.routes import profile_bp
     app.register_blueprint(media_bp)
     app.register_blueprint(profile_bp)
 
-    from app.results.routes import results_bp
-    app.register_blueprint(results_bp)
-
-    from app.announcements.routes import announcements_bp
-    app.register_blueprint(announcements_bp)
+    app.add_template_filter(lambda row: display_name(row.get('first_name'), row.get('middle_name'), row.get('last_name'), row.get('full_name')), 'person_name')
 
     from app.errors import register_error_handlers
     register_error_handlers(app)

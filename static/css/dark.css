@@ -75,3 +75,10 @@ html.dark .swal2-title, html.dark .swal2-html-container { color: #e2e8f0; }
 html.dark #sidebar { background-color: #0a1020; }
 
 html.dark tbody tr:hover { background-color: #1a2742; }
+
+/* stacked table rows on phones */
+@media (max-width: 767px) {
+    html.dark table.rt-stack tbody > tr { background: #111a2e; border-color: #2a3a5c; }
+    html.dark table.rt-stack tbody > tr > td + td { border-top-color: #1f2d4a; }
+    html.dark table.rt-stack tbody > tr > td::before { color: #94a3b8; }
+}

@@ -57,26 +57,26 @@
     <table class="w-full text-sm">
         <thead class="bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900">
             <tr>
-                {{ th('name', 'Name', sort_urls, sort, direction) }}
-                {{ th('username', 'Username', sort_urls, sort, direction) }}
-                <th class="px-4 py-2">Email</th>
+                {{ th('name', 'Name & Email', sort_urls, sort, direction) }}
+                {{ th('username', 'Username / ID', sort_urls, sort, direction) }}
                 {{ th('role', 'Role', sort_urls, sort, direction) }}
                 <th class="px-4 py-2">Status</th>
-                {{ th('last_login', 'Last login', sort_urls, sort, direction) }}
                 <th class="px-4 py-2">Actions</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
         {% for u in users %}
             <tr>
-                <td class="px-4 py-2 font-medium">
-                    <span class="inline-flex items-center gap-2">
-                    {% if photo_url(u.photo_path) %}<img src="{{ photo_url(u.photo_path) }}" alt="" class="h-7 w-7 rounded-full object-cover">{% else %}<span class="grid h-7 w-7 place-items-center rounded-full bg-slate-200 text-slate-500"><i class="fa-solid fa-user text-xs"></i></span>{% endif %}
-                    {{ u.full_name }}</span>
-                    {% if u.id == current_user.id %}<span class="ml-1 text-xs bg-slate-200 rounded-full px-2 py-0.5">You</span>{% endif %}
+                <td class="px-4 py-2">
+                    <div class="flex min-w-0 items-center gap-2.5">
+                        {% if photo_url(u.photo_path) %}<img src="{{ photo_url(u.photo_path) }}" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover">{% else %}<span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-200 text-slate-500"><i class="fa-solid fa-user text-xs"></i></span>{% endif %}
+                        <div class="min-w-0">
+                            <p class="break-words font-semibold leading-snug text-slate-900">{{ u|person_name }}{% if u.id == current_user.id %}<span class="ml-1 rounded-full bg-slate-200 px-2 py-0.5 align-middle text-xs font-medium normal-case">You</span>{% endif %}</p>
+                            <p class="break-all text-xs leading-snug text-slate-500">{{ u.email if u.email else 'No email address' }}</p>
+                        </div>
+                    </div>
                 </td>
-                <td class="px-4 py-2">{{ u.username }}</td>
-                <td class="px-4 py-2">{{ u.email or '-' }}</td>
+                <td class="px-4 py-2 font-num">{{ u.username }}</td>
                 <td class="px-4 py-2 whitespace-nowrap">{{ u.role_display }}</td>
                 <td class="px-4 py-2 whitespace-nowrap">
                     {% if not u.is_active %}
@@ -87,7 +87,6 @@
                         <span class="text-xs font-semibold bg-green-100 text-green-800 rounded-full px-2 py-1">Active</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-2 whitespace-nowrap">{{ u.last_login_at|dt }}</td>
                 <td class="px-4 py-2">
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="button" data-modal-url="{{ url_for('admin.user_edit', user_id=u.id) }}"
