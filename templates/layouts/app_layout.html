@@ -143,7 +143,6 @@
 {% elif current_user.role in ('student', 'council_officer') %}
     {{ nav_link(url_for('announcements.list_page'), 'chat-bubble-left-right', 'Announcements', ep in ('announcements.list_page', 'announcements.read')) }}
 {% endif %}
-            {% elif current_user.role in ('student', 'council_officer') %}{{ nav_link(url_for('announcements.list_page'), 'fa-bullhorn', 'Announcements', ep in ('announcements.list_page', 'announcements.read')) }}{% endif %}
             {% if has_permission('voting.cast') and current_user.role in ('student', 'council_officer', 'super_admin') %}{{ nav_link(url_for('voting.my_elections'), 'clipboard-document-check', 'My Elections', ep.startswith('voting.')) }}{% endif %}
             {{ nav_link(url_for('dashboard.home'), 'squares-2x2', 'Dashboard', ep == 'dashboard.home' or ep.endswith('_home')) }}
             {% if has_permission('users.manage') or has_permission('students.view') or has_permission('departments.manage') or has_permission('school_years.manage') %}
