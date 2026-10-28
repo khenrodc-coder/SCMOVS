@@ -1,7 +1,7 @@
 """Data for the Student dashboard (Phase 7A). Everything comes from the database."""
 from app.dashboard.officer import recent_notifications
-from app.db import fetch_all
 from app.voting import services as voting
+from app.announcements.services import visible_for
 
 
 def student_announcements(student, limit=4):
@@ -26,5 +26,5 @@ def overview(user):
     data["elections"] = elections
     data["open_count"] = sum(1 for e in elections if e["can_vote"])
     data["voted_count"] = sum(1 for e in elections if e["state"] == "voted")
-    data["announcements"] = student_announcements(student)
+    data["announcements"] = visible_for(user)
     return data

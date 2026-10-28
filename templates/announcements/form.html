@@ -1,0 +1,63 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/form_errors.html" import form_errors %}
+{% block title %}{{ 'New' if mode == 'create' else 'Edit' }} Announcement{% endblock %}
+
+{% set input_class = 'w-full border border-slate-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 disabled:bg-slate-100 disabled:text-slate-500' %}
+{% set locked = mode == 'edit' and a.status == 'published' %}
+{% set back = url_for('announcements.manage_list') if mode == 'create' else url_for('announcements.manage_detail', announcement_id=a.id) %}
+
+{% block content %}
+<a href="{{ back }}" class="text-sm text-blue-700 hover:underline">&larr; Back</a>
+<h1 class="mt-2 text-2xl font-bold text-blue-900">{{ 'New Announcement' if mode == 'create' else 'Edit Announcement' }}</h1>
+{{ form_errors(errors) }}
+
+{% if locked %}
+<div class="mt-4 max-w-2xl rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"><i class="fa-solid fa-lock mr-1"></i>This announcement is already published. You can correct the title and text, but the audience and date are locked because people have already been told about it.</div>
+{% endif %}
+
+<form method="post" action="{{ url_for('announcements.manage_create') if mode == 'create' else url_for('announcements.manage_edit', announcement_id=a.id) }}"
+      class="mt-6 max-w-2xl bg-white border border-slate-200 rounded-xl p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="sm:col-span-2">
+        <label for="title" class="block text-sm font-medium mb-1">Title</label>
+        <input type="text" id="title" name="title" value="{{ form.title }}" required maxlength="150" class="{{ input_class }}">
+    </div>
+    <div class="sm:col-span-2">
+        <label for="content" class="block text-sm font-medium mb-1">Announcement text</label>
+        <textarea id="content" name="content" rows="8" required maxlength="5000" class="{{ input_class }}">{{ form.content }}</textarea>
+        <p class="mt-1 text-xs text-slate-500">Plain text. Line breaks are kept.</p>
+    </div>
+    <div>
+        <label for="target_audience" class="block text-sm font-medium mb-1">Who is it for?</label>
+        <select id="target_audience" name="target_audience" class="{{ input_class }}" {{ 'disabled' if locked }}>
+            {% for key, label in audiences %}<option value="{{ key }}" {{ 'selected' if form.target_audience == key }}>{{ label }}</option>{% endfor %}
+        </select>
+    </div>
+    <div id="department-box">
+        <label for="department_id" class="block text-sm font-medium mb-1">Department</label>
+        <select id="department_id" name="department_id" class="{{ input_class }}" {{ 'disabled' if locked }}>
+            <option value="">Choose...</option>
+            {% for d in departments %}<option value="{{ d.id }}" {{ 'selected' if form.department_id == d.id|string }}>{{ d.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="sm:col-span-2">
+        <label for="publish_at" class="block text-sm font-medium mb-1">Publication date and time <span class="text-slate-400">(optional)</span></label>
+        <input type="datetime-local" id="publish_at" name="publish_at" value="{{ form.publish_at }}" class="{{ input_class }}" {{ 'disabled' if locked }}>
+        <p class="mt-1 text-xs text-slate-500">Leave empty to publish immediately when you click Publish. If you choose a future date, readers see it from then, but <strong>no notification is sent</strong> for scheduled announcements.</p>
+    </div>
+
+    <div class="sm:col-span-2 flex gap-2 pt-2">
+        <button type="submit" class="bg-blue-900 hover:bg-blue-800 text-white font-semibold px-5 py-2 rounded-lg">{{ 'Save Draft' if mode == 'create' else 'Save Changes' }}</button>
+        <a href="{{ back }}" class="border border-slate-300 bg-white hover:bg-slate-100 px-5 py-2 rounded-lg">Cancel</a>
+    </div>
+</form>
+<script>
+    // Show the department choice only when the audience is "One department". The server checks it again.
+    (function () {
+        var audience = document.getElementById('target_audience'), box = document.getElementById('department-box');
+        function sync() { box.style.display = audience.value === 'department' ? '' : 'none'; }
+        audience.addEventListener('change', sync); sync();
+    })();
+</script>
+{% endblock %}

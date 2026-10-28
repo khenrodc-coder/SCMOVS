@@ -14,6 +14,7 @@ from flask import url_for
 
 from app.db import fetch_all, fetch_one
 from app.proposals.services import user_scope
+from app.announcements.services import visible_for
 
 
 def _num(value):
@@ -213,7 +214,7 @@ def overview(user):
     data = _empty()
     ids = user_scope(user) or []
     data["notifications"], data["unread"] = recent_notifications(user["id"])
-    data["announcements"] = visible_announcements(user["id"])
+    data["announcements"] = visible_for(user)
     if not ids:
         return data
     data["multi_council"] = len(ids) > 1

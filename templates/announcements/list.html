@@ -1,0 +1,31 @@
+{% extends "layouts/app_layout.html" %}
+{% from "components/pagination.html" import pagination %}
+{% block title %}Announcements{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-900">Announcements</h1>
+<p class="text-sm text-slate-600">News and notices meant for you.</p>
+
+<form method="get" action="{{ url_for('announcements.list_page') }}" class="mt-4 flex gap-2">
+    <input type="text" name="q" value="{{ q }}" maxlength="100" placeholder="Search announcements" class="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600">
+    <button type="submit" class="rounded-lg bg-blue-900 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-800"><i class="fa-solid fa-magnifying-glass mr-1"></i>Search</button>
+    {% if q %}<a href="{{ url_for('announcements.list_page') }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-100">Reset</a>{% endif %}
+</form>
+
+<div class="mt-4 space-y-3">
+    {% for a in items %}
+    <a href="{{ url_for('announcements.read', announcement_id=a.id) }}" class="block rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-blue-600">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="font-semibold text-slate-900">{{ a.title }}</h2>
+            <span class="text-xs text-slate-500">{{ (a.publish_at or a.created_at)|dt }}</span>
+        </div>
+        <p class="mt-1 text-sm text-slate-600">{{ a.content|truncate(220) }}</p>
+        <p class="mt-1 text-xs text-slate-400">{{ a.author }} &middot; {{ labels[a.target_audience] }}</p>
+    </a>
+    {% else %}
+    <div class="rounded-xl border border-slate-200 bg-white px-6 py-12 text-center text-slate-500">
+        <i class="fa-solid fa-bullhorn text-3xl"></i><p class="mt-2">{{ 'No announcements match your search.' if q else 'There are no announcements for you yet.' }}</p></div>
+    {% endfor %}
+</div>
+{{ pagination('announcements.list_page', page, pages, filters, total) }}
+{% endblock %}
