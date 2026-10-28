@@ -97,8 +97,8 @@ def create_app():
 
     from app.results.routes import results_bp
     app.register_blueprint(results_bp)
-    announcements_routes = import_module("app.announcements.routes")
-    announcements_bp = getattr(announcements_routes, "announcements_bp")
+
+    from app.announcements.routes import announcements_bp
     app.register_blueprint(announcements_bp)
 
     from app.errors import register_error_handlers
