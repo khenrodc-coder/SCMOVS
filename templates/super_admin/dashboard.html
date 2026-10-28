@@ -1,180 +1,325 @@
 {% extends "layouts/app_layout.html" %}
-{% block title %}Super Admin Dashboard{% endblock %}
+{% from "components/cards.html" import stat_card %}
 
-{# Compact summary card: icon + label + value (+ optional note). highlight=True gives the amber attention style. #}
-{% macro stat_card(icon, label, value, note='', highlight=False) %}
-{% set _sv = value|string %}{% set _num = value is number or (_sv|length > 0 and (_sv[0] in '0123456789$₱' or _sv.startswith('PHP'))) %}
-<div class="flex items-center gap-3 rounded-lg border px-3 py-2.5 shadow-sm {{ 'border-amber-400 bg-amber-50' if highlight else 'border-slate-200 bg-white' }}" {% if note %}title="{{ note }}"{% endif %}>
-    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm {{ 'bg-amber-100 text-amber-700' if highlight else 'bg-blue-50 text-blue-900' }}"><i class="fa-solid {{ icon }}" aria-hidden="true"></i></span>
+{% block title %}School Admin Dashboard{% endblock %}
+
+{% macro school_stat(icon, label, value, note='') %}
+<div class="flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-sm text-blue-900">
+        <i class="fa-solid {{ icon }}" aria-hidden="true"></i>
+    </span>
     <div class="min-w-0">
         <p class="truncate text-xs font-semibold text-slate-500">{{ label }}</p>
-        <p class="truncate text-xl font-extrabold leading-tight tracking-tight text-slate-900{{ ' font-num' if _num }}">{{ value }}</p>
-        {% if note %}<p class="truncate text-[11px] text-slate-500">{{ note }}</p>{% endif %}
+        <p class="truncate text-xl font-extrabold leading-tight tracking-tight text-slate-900">
+            {{ value }}
+        </p>
+        {% if note %}
+        <p class="truncate text-[11px] text-slate-500">{{ note }}</p>
+        {% endif %}
     </div>
 </div>
 {% endmacro %}
 
-{% macro tab_btn(id, panel, label, selected=False) %}
-<button type="button" role="tab" id="{{ id }}" aria-controls="{{ panel }}" aria-selected="{{ 'true' if selected else 'false' }}" tabindex="{{ 0 if selected else -1 }}"
-        class="-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 {{ 'border-blue-900 text-blue-900' if selected else 'border-transparent text-slate-500 hover:text-blue-900' }}">{{ label }}</button>
-{% endmacro %}
-
 {% block content %}
-<div class="mx-auto flex w-full max-w-[1400px] flex-col gap-3 xl:h-[calc(100vh-7.75rem)] xl:min-h-[520px]">
+<div class="mx-auto flex w-full max-w-[1400px] flex-col gap-3">
 
-    <div class="flex flex-wrap items-end justify-between gap-2">
+    <!-- Header -->
+    <header class="flex flex-wrap items-end justify-between gap-2">
         <div>
-            <h1 class="text-xl font-extrabold tracking-tight text-blue-950 sm:text-2xl">Super Admin Dashboard</h1>
-            <p class="text-sm text-slate-600">System overview and administrative monitoring. Welcome, {{ current_user.full_name }}.</p>
+            <h1 class="text-xl font-extrabold tracking-tight text-blue-950 sm:text-2xl">
+                School Admin Dashboard
+            </h1>
+            <p class="text-sm text-slate-600">
+                Student and election management overview.
+                Welcome, {{ current_user.full_name }}.
+            </p>
         </div>
-        <span class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900"><i class="fa-solid fa-calendar-check" aria-hidden="true"></i>School year: {{ stats.active_school_year }}</span>
-    </div>
 
-    <div class="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <section class="grid grid-cols-1 content-start gap-2 min-[480px]:grid-cols-2 min-[1140px]:grid-cols-4 xl:auto-rows-fr xl:grid-cols-2" aria-label="Statistics">
-            {{ stat_card('fa-users', 'Total users', stats.total_users, stats.active_users ~ ' active') }}
-            {{ stat_card('fa-check-to-slot', 'Active elections', stats.active_elections) }}
-            {{ stat_card('fa-hourglass-half', 'Pending candidates', stats.pending_candidates, 'of ' ~ stats.candidates ~ ' registered', highlight=stats.pending_candidates) }}
-            {{ stat_card('fa-wallet', 'Approved budgets', finance.approved_budgets|money) }}
-        </section>
+        <span class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900">
+            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
+            {{ current_user.role_display }}
+        </span>
+    </header>
 
-        <section class="min-w-0" aria-labelledby="dept-stats-title">
-            <h2 id="dept-stats-title" class="text-base font-bold text-blue-950" style="font-family:inherit">Department Statistics</h2>
-            {% if department_stats %}
-            <div class="-mx-1 mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2" role="list" tabindex="0" aria-label="Voting statistics per department">
-                {% for d in department_stats %}
-                {% set pill = {'open': 'bg-blue-50 text-blue-700', 'scheduled': 'bg-amber-50 text-amber-700', 'closed': 'bg-slate-100 text-slate-600',
-                               'pending_verification': 'bg-amber-50 text-amber-700', 'verified': 'bg-green-50 text-green-700', 'published': 'bg-green-50 text-green-700'}.get(d.status, 'bg-slate-100 text-slate-500') %}
-                <article role="listitem" class="w-60 shrink-0 snap-start rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-                         {% if d.election_name %}title="{{ d.election_name }}"{% endif %}>
-                    <div class="flex items-start justify-between gap-2">
-                        <h3 class="min-w-0 break-words text-[15px] font-bold leading-tight text-blue-900">{{ d.name }} Dept</h3>
-                        <span class="shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-wide {{ pill }}">{{ d.status_label }}</span>
+    <!-- Statistics -->
+    <section class="grid grid-cols-1 content-start gap-2 min-[480px]:grid-cols-2 xl:grid-cols-4"
+             aria-label="School statistics">
+        {{ school_stat('fa-user-graduate', 'Total Students', total_students) }}
+        {{ school_stat('fa-check-to-slot', 'Open Elections', open_elections) }}
+        {{ school_stat('fa-id-badge', 'Registered Candidates', registered_candidates) }}
+        {{ school_stat('fa-calendar-days', 'Scheduled Elections', scheduled_elections) }}
+    </section>
+
+    <!-- Department statistics: render only when supplied by the backend -->
+    {% if department_stats is defined and department_stats %}
+    <section aria-labelledby="department-stats-title">
+        <h2 id="department-stats-title" class="text-base font-bold text-blue-950">
+            Department Statistics
+        </h2>
+
+        <div class="-mx-1 mt-2 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2">
+            {% for d in department_stats %}
+            <article class="w-60 shrink-0 snap-start rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <h3 class="break-words text-[15px] font-bold text-blue-900">
+                    {{ d.name }} Department
+                </h3>
+
+                <dl class="mt-3 space-y-2 text-[13px]">
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-slate-500">Eligible Students</dt>
+                        <dd class="font-bold text-slate-900">{{ '{:,}'.format(d.eligible) }}</dd>
                     </div>
-                    <dl class="mt-3 space-y-1.5 text-[13px]">
-                        <div class="flex items-center justify-between gap-2"><dt class="text-slate-500">Eligible Voters</dt><dd class="font-num font-bold text-slate-900">{{ '{:,}'.format(d.eligible) if d.status else '—' }}</dd></div>
-                        <div class="flex items-center justify-between gap-2"><dt class="text-slate-500">Votes Cast</dt><dd class="font-num font-bold text-slate-900">{{ '{:,}'.format(d.cast) if d.status else '—' }}</dd></div>
-                        <div class="flex items-center justify-between gap-2 pt-2"><dt class="whitespace-nowrap font-bold text-slate-900">Participation Rate</dt><dd class="font-num font-bold text-blue-800">{{ ('%.1f%%'|format(d.rate)) if d.status else '—' }}</dd></div>
-                    </dl>
-                    <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Participation rate" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ d.rate if d.status else 0 }}">
-                        <div class="h-full rounded-full bg-blue-900" style="width: {{ d.rate if d.status else 0 }}%"></div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="text-slate-500">Votes Cast</dt>
+                        <dd class="font-bold text-slate-900">{{ '{:,}'.format(d.cast) }}</dd>
                     </div>
-                </article>
-                {% endfor %}
-            </div>
-            {% else %}
-            <p class="mt-2 rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">No active departments yet.</p>
-            {% endif %}
-        </section>
-    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="font-bold text-slate-900">Participation</dt>
+                        <dd class="font-bold text-blue-800">{{ '%.1f%%'|format(d.rate) }}</dd>
+                    </div>
+                </dl>
 
-    <div class="grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-3">
+                <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-200"
+                     role="progressbar"
+                     aria-label="{{ d.name }} department participation"
+                     aria-valuemin="0"
+                     aria-valuemax="100"
+                     aria-valuenow="{{ d.rate }}">
+                    <div class="h-full rounded-full bg-blue-900"
+                         style="width: {{ [[d.rate, 0]|max, 100]|min }}%">
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
 
-        <section class="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-2 xl:col-span-2" aria-label="Charts">
-            <div class="flex min-h-[320px] min-w-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-200 px-4 py-3">
-                    <h2 class="text-sm font-bold text-blue-950" style="font-family:inherit">Budget and Expenses Monitoring</h2>
-                    <p class="mt-0.5 text-xs text-slate-500">Approved amounts per month.
-                        <span class="whitespace-nowrap">Budgets <strong class="font-num text-slate-800">{{ finance.approved_budgets|money }}</strong></span> &middot;
-                        <span class="whitespace-nowrap">Expenses <strong class="font-num text-slate-800">{{ finance.approved_expenses|money }}</strong></span> &middot;
-                        <span class="whitespace-nowrap">Balance <strong class="font-num text-slate-800">{{ finance.available|money }}</strong></span></p>
-                </div>
-                <div class="relative min-h-[240px] flex-1 p-3"><canvas id="chart-budget-trend" role="img" aria-label="Line chart of approved budgets and expenses per month"></canvas></div>
-            </div>
-            <div class="flex min-h-[320px] min-w-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-200 px-4 py-3">
-                    <h2 class="text-sm font-bold text-blue-950" style="font-family:inherit">Open Election Voting Participation</h2>
-                    <p class="mt-0.5 text-xs text-slate-500">Students who have voted and who have not yet voted, per open election.</p>
-                </div>
-                <div class="relative min-h-[240px] flex-1 p-3"><canvas id="chart-open-participation" role="img" aria-label="Bar chart of students who voted and who have not voted in each open election"></canvas></div>
-            </div>
-        </section>
+    <!-- Analytics -->
+    <section class="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label="School analytics">
 
-        <section class="flex min-h-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="System activity" data-tabs>
-            <div role="tablist" aria-label="System activity" class="flex gap-1 border-b border-slate-200 px-3">
-                {{ tab_btn('tab-actions', 'panel-actions', 'Recent actions', True) }}
-                {{ tab_btn('tab-logins', 'panel-logins', 'Recent logins') }}
+        {% if charts and charts.departments is defined %}
+        <article class="flex min-h-[320px] min-w-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-200 px-4 py-3">
+                <h2 class="text-sm font-bold text-blue-950">
+                    Students by Department
+                </h2>
+                <p class="mt-0.5 text-xs text-slate-500">
+                    Distribution of student records by department.
+                </p>
             </div>
-            <div class="max-h-96 min-h-0 flex-1 overflow-y-auto xl:max-h-none">
-                <div id="panel-actions" role="tabpanel" aria-labelledby="tab-actions" class="p-4">
-                    {% if recent_actions %}
-                    <ol class="relative ml-2 border-l border-slate-200">
-                        {% for row in recent_actions %}
-                        <li class="relative pb-4 pl-5 last:pb-0">
-                            <span class="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-amber-500 ring-4 ring-white" aria-hidden="true"></span>
-                            <p class="text-sm font-semibold text-slate-900">{{ row.action|replace('_', ' ')|title }}</p>
-                            <p class="text-xs text-slate-500">{{ row.description }}</p>
-                            <p class="mt-0.5 text-xs font-semibold text-amber-600">{{ row.created_at|dt }} <span class="font-normal text-slate-400">&middot; {{ row.full_name or 'Unknown' }}</span></p>
-                        </li>
-                        {% endfor %}
-                    </ol>
-                    {% else %}
-                    <p class="py-6 text-center text-sm text-slate-500">No administrative actions recorded yet.</p>
-                    {% endif %}
-                </div>
-                <div id="panel-logins" role="tabpanel" aria-labelledby="tab-logins" class="hidden">
-                    {% if recent_logins %}
-                    <table class="w-full text-sm">
-                        <thead class="sticky top-0 bg-blue-50 text-left text-xs font-bold uppercase tracking-wider text-blue-900"><tr>
-                            <th class="px-4 py-2">User</th><th class="px-4 py-2">When</th><th class="px-4 py-2">IP</th>
-                        </tr></thead>
-                        <tbody class="divide-y divide-slate-200 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50">
-                        {% for row in recent_logins %}
-                            <tr>
-                                <td class="px-4 py-2">{{ row.full_name }} <span class="text-slate-500">({{ row.username }})</span></td>
-                                <td class="whitespace-nowrap px-4 py-2 text-xs">{{ row.created_at|dt }}</td>
-                                <td class="px-4 py-2 text-xs">{{ row.ip_address or '-' }}</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                    {% else %}
-                    <p class="px-4 py-6 text-center text-sm text-slate-500">No logins recorded yet.</p>
-                    {% endif %}
-                </div>
+            <div class="relative min-h-[260px] flex-1 p-3">
+                <canvas id="chart-sa-departments"
+                        role="img"
+                        aria-label="Chart showing students by department"></canvas>
             </div>
-        </section>
-    </div>
+            <p id="chart-sa-departments-note"
+               class="px-4 pb-3 text-center text-xs text-slate-500"
+               aria-live="polite"></p>
+        </article>
+        {% endif %}
+
+        {% if charts and charts.candidates is defined %}
+        <article class="flex min-h-[320px] min-w-0 flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-200 px-4 py-3">
+                <h2 class="text-sm font-bold text-blue-950">
+                    Candidates by Review Status
+                </h2>
+                <p class="mt-0.5 text-xs text-slate-500">
+                    Candidate records grouped by review status.
+                </p>
+            </div>
+            <div class="relative min-h-[260px] flex-1 p-3">
+                <canvas id="chart-sa-candidates"
+                        role="img"
+                        aria-label="Chart showing candidates by review status"></canvas>
+            </div>
+            <p id="chart-sa-candidates-note"
+               class="px-4 pb-3 text-center text-xs text-slate-500"
+               aria-live="polite"></p>
+        </article>
+        {% endif %}
+
+    </section>
+
+    <!-- Review Queue -->
+    <section aria-labelledby="review-queue-heading">
+        <div class="mb-3 flex flex-wrap items-end justify-between gap-2">
+            <div>
+                <h2 id="review-queue-heading"
+                    class="text-base font-bold text-blue-950">
+                    Waiting for Your Review
+                </h2>
+                <p class="text-xs text-slate-500">
+                    Submitted items awaiting review.
+                </p>
+            </div>
+            <span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-900">
+                <i class="fa-solid fa-clock mr-1" aria-hidden="true"></i>
+                Review queue
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 xl:grid-cols-4">
+
+            <a href="{{ url_for('events.list_page', status='submitted') }}"
+               class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <span class="text-xs font-semibold text-slate-500">Event proposals</span>
+                <p class="mt-1 text-2xl font-extrabold text-blue-950">{{ pending_events }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+            <a href="{{ url_for('projects.list_page', status='submitted') }}"
+               class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <span class="text-xs font-semibold text-slate-500">Project proposals</span>
+                <p class="mt-1 text-2xl font-extrabold text-blue-950">{{ pending_projects }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+            <a href="{{ url_for('budgets.list_page', status='submitted') }}"
+               class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <span class="text-xs font-semibold text-slate-500">Budget requests</span>
+                <p class="mt-1 text-2xl font-extrabold text-blue-950">{{ pending_budgets }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+            <a href="{{ url_for('expenses.list_page', status='submitted') }}"
+               class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <span class="text-xs font-semibold text-slate-500">Expenses</span>
+                <p class="mt-1 text-2xl font-extrabold text-blue-950">{{ pending_expenses }}</p>
+                <p class="mt-1 text-xs text-slate-500">Submitted or under review</p>
+            </a>
+
+        </div>
+    </section>
+
 </div>
 {% endblock %}
 
 {% block scripts %}
+{% if charts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script id="scmovs-charts-data" type="application/json">
-    {{ charts|tojson|safe }}
-</script>
-<script>
-    window.SCMOVS_CHARTS = JSON.parse(
-        document.getElementById('scmovs-charts-data').textContent
-    );
-</script>
+<script id="sa-chart-data" type="application/json">{{ charts|tojson }}</script>
 <script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
-<script src="{{ url_for('static', filename='js/super_admin_dashboard.js') }}"></script>
 <script>
-    // Tabs for the analytics and activity panels (one visible at a time so the dashboard fits the screen).
-    document.querySelectorAll('[data-tabs]').forEach(function (group) {
-        var tabs = group.querySelectorAll('[role="tab"]');
-        function show(tab) {
-            tabs.forEach(function (t) {
-                var on = t === tab;
-                t.setAttribute('aria-selected', on ? 'true' : 'false');
-                t.tabIndex = on ? 0 : -1;
-                t.classList.toggle('border-blue-900', on); t.classList.toggle('text-blue-900', on);
-                t.classList.toggle('border-transparent', !on); t.classList.toggle('text-slate-500', !on);
-                var panel = document.getElementById(t.getAttribute('aria-controls'));
-                if (panel) panel.classList.toggle('hidden', !on);
-            });
-            var shown = document.getElementById(tab.getAttribute('aria-controls'));
-            if (shown && window.Chart) shown.querySelectorAll('canvas').forEach(function (c) { var ch = Chart.getChart(c); if (ch) ch.resize(); });
-        }
-        tabs.forEach(function (t, i) {
-            t.addEventListener('click', function () { show(t); });
-            t.addEventListener('keydown', function (e) {
-                var n = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
-                if (n === null) return;
-                var next = tabs[(n + tabs.length) % tabs.length]; show(next); next.focus();
-            });
+(function () {
+    "use strict";
+
+    const element = document.getElementById("sa-chart-data");
+    if (!element || typeof Chart === "undefined") return;
+
+    let data;
+    try {
+        data = JSON.parse(element.textContent || "{}");
+    } catch (error) {
+        console.error("Unable to parse School Admin chart data.", error);
+        return;
+    }
+
+    const palette = [
+        "#1e3a8a", "#d97706", "#0f766e",
+        "#7c3aed", "#be123c", "#64748b"
+    ];
+
+    const formatNumber = new Intl.NumberFormat("en-PH");
+
+    function makeChart(id, type, series, options) {
+        const canvas = document.getElementById(id);
+        if (!canvas || !series || !Array.isArray(series.labels) ||
+            !Array.isArray(series.values)) return;
+
+        const labels = [];
+        const values = [];
+
+        series.labels.forEach(function (label, index) {
+            const value = Number(series.values[index]);
+            if (!Number.isFinite(value) || value < 0) return;
+            labels.push(String(label ?? "Unknown"));
+            values.push(value);
         });
+
+        const total = values.reduce((sum, value) => sum + value, 0);
+        const note = document.getElementById(id + "-note");
+
+        if (!values.length || total === 0) {
+            if (note) note.textContent = "No data available yet.";
+            return;
+        }
+
+        const previous = Chart.getChart(canvas);
+        if (previous) previous.destroy();
+
+        new Chart(canvas, {
+            type: type,
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: options.label,
+                    data: values,
+                    backgroundColor: labels.map((_, i) => palette[i % palette.length]),
+                    borderColor: type === "doughnut" ? "#ffffff" : undefined,
+                    borderWidth: type === "doughnut" ? 3 : 0,
+                    borderRadius: type === "bar" ? 5 : 0,
+                    borderSkipped: false,
+                    maxBarThickness: 32
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: options.horizontal ? "y" : "x",
+                animation: { duration: 500 },
+                plugins: {
+                    legend: {
+                        display: type === "doughnut",
+                        position: "bottom",
+                        labels: {
+                            usePointStyle: true,
+                            padding: 16,
+                            boxWidth: 8
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return " " + context.label + ": " +
+                                    formatNumber.format(Number(context.raw) || 0) +
+                                    " " + options.label.toLowerCase();
+                            }
+                        }
+                    }
+                },
+                scales: type === "bar" ? {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 },
+                        grid: { color: "#f1f5f9" },
+                        border: { display: false }
+                    },
+                    y: {
+                        grid: { display: false },
+                        border: { display: false },
+                        ticks: { autoSkip: false }
+                    }
+                } : {}
+            }
+        });
+
+        if (note) {
+            note.textContent = formatNumber.format(total) + " " +
+                options.label.toLowerCase() + " across " + labels.length + " categories.";
+        }
+    }
+
+    makeChart("chart-sa-departments", "doughnut", data.departments, {
+        label: "Students"
     });
+
+    makeChart("chart-sa-candidates", "bar", data.candidates, {
+        label: "Candidates",
+        horizontal: true
+    });
+})();
 </script>
+{% endif %}
 {% endblock %}
