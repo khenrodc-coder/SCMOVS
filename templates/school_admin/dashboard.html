@@ -51,32 +51,31 @@
             {{ stat_card('fa-calendar-days', 'Scheduled Elections', scheduled_elections, 'Upcoming elections') }}
         </div>
     </section>
-
-    <!-- Analytics -->
+    {# Analytics #}
     {% if charts %}
-    <section class="grid grid-cols-1 gap-3 lg:grid-cols-2"
+    <section class="grid grid-cols-1 items-start gap-3 lg:grid-cols-2"
              aria-label="School analytics">
 
         {% if charts.departments is defined %}
-        <article class="flex min-h-[350px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <article class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div>
-                    <h2 class="text-sm font-bold text-blue-950">
-                        Students by Department
-                    </h2>
-                    <p class="mt-1 text-xs text-slate-500">
-                        Distribution of registered students
-                    </p>
+                    <h2 class="text-sm font-bold text-blue-950">Students by Department</h2>
+                    <p class="mt-1 text-xs text-slate-500">Distribution of registered students</p>
                 </div>
                 <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-900">
                     <i class="fa-solid fa-users" aria-hidden="true"></i>
                 </span>
             </div>
 
-            <div class="relative min-h-[290px] flex-1 p-4">
-                <canvas id="chart-sa-departments"
+            <div class="p-4">
+                <div class="relative h-[260px] w-full">
+                    <canvas
+                        id="chart-sa-departments"
                         role="img"
-                        aria-label="Doughnut chart showing student counts by department"></canvas>
+                        aria-label="Doughnut chart showing student counts by department">
+                    </canvas>
+                </div>
                 <p id="chart-sa-departments-note"
                    class="mt-2 text-center text-xs text-slate-500"
                    aria-live="polite"></p>
@@ -85,25 +84,25 @@
         {% endif %}
 
         {% if charts.candidates is defined %}
-        <article class="flex min-h-[350px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <article class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div>
-                    <h2 class="text-sm font-bold text-blue-950">
-                        Candidates by Review Status
-                    </h2>
-                    <p class="mt-1 text-xs text-slate-500">
-                        Overview of candidate application statuses
-                    </p>
+                    <h2 class="text-sm font-bold text-blue-950">Candidates by Review Status</h2>
+                    <p class="mt-1 text-xs text-slate-500">Overview of candidate application statuses</p>
                 </div>
                 <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-800">
                     <i class="fa-solid fa-chart-bar" aria-hidden="true"></i>
                 </span>
             </div>
 
-            <div class="relative min-h-[290px] flex-1 p-4">
-                <canvas id="chart-sa-candidates"
+            <div class="p-4">
+                <div class="relative h-[260px] w-full">
+                    <canvas
+                        id="chart-sa-candidates"
                         role="img"
-                        aria-label="Horizontal bar chart showing candidate counts by review status"></canvas>
+                        aria-label="Horizontal bar chart showing candidate counts by review status">
+                    </canvas>
+                </div>
                 <p id="chart-sa-candidates-note"
                    class="mt-2 text-center text-xs text-slate-500"
                    aria-live="polite"></p>
@@ -113,7 +112,6 @@
 
     </section>
     {% endif %}
-
     <!-- Review Queue -->
     <section aria-labelledby="review-queue-heading">
         <div class="mb-2 flex flex-wrap items-end justify-between gap-2">
