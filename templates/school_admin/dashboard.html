@@ -88,13 +88,13 @@
     </section>
 
     <!-- Analytics and review queue -->
-    <section class="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-3" aria-label="School analytics and review queue">
+    <section class="grid grid-cols-1 items-stretch gap-5 2xl:grid-cols-2" aria-label="School analytics and review queue">
 
         {% if charts and charts.departments is defined %}
         <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             {{ card_head('fa-users', 'Students by department', 'Distribution of registered students') }}
             <div class="flex-1 p-4">
-                <div class="relative h-[250px] w-full">
+                    <div class="relative h-[360px] w-full sm:h-[400px] xl:h-[420px]">
                     <canvas id="chart-sa-departments" role="img" aria-label="Doughnut chart showing student counts by department"></canvas>
                 </div>
                 <p id="chart-sa-departments-note" class="mt-2 text-center text-xs text-slate-500" aria-live="polite"></p>
@@ -111,7 +111,7 @@
         <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             {{ card_head('fa-chart-bar', 'Candidates by review status', 'Where each application stands', 'amber') }}
             <div class="flex-1 p-4">
-                <div class="relative h-[250px] w-full">
+                <div class="relative h-[360px] w-full sm:h-[400px] xl:h-[420px]">
                     <canvas id="chart-sa-candidates" role="img" aria-label="Horizontal bar chart showing candidate counts by review status"></canvas>
                 </div>
                 <p id="chart-sa-candidates-note" class="mt-2 text-center text-xs text-slate-500" aria-live="polite"></p>
@@ -124,7 +124,7 @@
         {% endif %}
 
         <!-- Review queue -->
-        <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2 xl:col-span-1" aria-labelledby="review-queue-heading">
+       <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm 2xl:col-span-2" aria-labelledby="review-queue-heading">
             <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
                 <div class="flex min-w-0 items-center gap-3">
                     <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-50 text-sm text-amber-700"><i class="fa-solid fa-clock" aria-hidden="true"></i></span>
