@@ -1,196 +1,165 @@
-﻿
-{% extends "layouts/app_layout.html" %}
+﻿{% extends "layouts/app_layout.html" %}
 {% block title %}School Admin Dashboard{% endblock %}
 
-{# Compact statistics card #}
-{% macro stat_card(icon, label, value, note='', highlight=False) %}
-{% set _sv = value|string %}
-{% set _num = value is number or (_sv|length > 0 and (_sv[0] in '0123456789$₱' or _sv.startswith('PHP'))) %}
-<div class="flex min-w-0 items-center gap-3 rounded-lg border px-3 py-2.5 shadow-sm {{ 'border-amber-400 bg-amber-50' if highlight else 'border-slate-200 bg-white' }}"
-     {% if note %}title="{{ note }}"{% endif %}>
-    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm {{ 'bg-amber-100 text-amber-700' if highlight else 'bg-blue-50 text-blue-900' }}">
+{#
+  School Admin dashboard.
+  Same data contract as before: total_students, open_elections, registered_candidates, scheduled_elections,
+  pending_events, pending_projects, pending_budgets, pending_expenses, charts.departments, charts.candidates.
+  Nothing else is required from the route.
+#}
+
+{# ------------------------------------------------------------------ KPI card (the whole card is a link) #}
+{% macro kpi(icon, label, value, note, href, tone='blue', live=False) %}
+{% set tones = {
+    'blue':  ('bg-blue-50 text-blue-900',   'border-l-blue-900'),
+    'green': ('bg-green-50 text-green-700', 'border-l-green-600'),
+    'amber': ('bg-amber-50 text-amber-700', 'border-l-amber-500'),
+    'slate': ('bg-slate-100 text-slate-700', 'border-l-slate-400')} %}
+{% set n = value|int %}
+<a href="{{ href }}"
+   class="group relative flex min-w-0 items-center gap-3.5 rounded-xl border border-l-4 border-slate-200 {{ tones[tone][1] }} bg-white px-4 py-3.5 shadow-sm transition motion-safe:hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
+    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-base {{ tones[tone][0] }}">
+        <i class="fa-solid {{ icon }}" aria-hidden="true"></i>
+    </span>
+    <span class="min-w-0 flex-1">
+        <span class="block truncate text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ label }}</span>
+        <span class="flex items-baseline gap-2">
+            <span class="font-num text-[1.65rem] font-extrabold leading-tight tracking-tight text-slate-900">{{ '{:,}'.format(n) }}</span>
+            {% if live and n > 0 %}
+            <span class="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-bold text-green-700">
+                <span class="h-1.5 w-1.5 rounded-full bg-green-600 motion-safe:animate-pulse" aria-hidden="true"></span>Live
+            </span>
+            {% endif %}
+        </span>
+        <span class="block truncate text-xs text-slate-500">{{ note }}</span>
+    </span>
+    <i class="fa-solid fa-chevron-right text-xs text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-800" aria-hidden="true"></i>
+</a>
+{% endmacro %}
+
+{# ------------------------------------------------------------------ Chart card header #}
+{% macro card_head(icon, title, subtitle, tone='blue') %}
+<div class="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm {{ 'bg-amber-50 text-amber-700' if tone == 'amber' else 'bg-blue-50 text-blue-900' }}">
         <i class="fa-solid {{ icon }}" aria-hidden="true"></i>
     </span>
     <div class="min-w-0">
-        <p class="truncate text-xs font-semibold text-slate-500">{{ label }}</p>
-        <p class="truncate text-xl font-extrabold leading-tight tracking-tight text-slate-900{{ ' font-num' if _num }}">{{ value }}</p>
-        {% if note %}
-        <p class="truncate text-[11px] text-slate-500">{{ note }}</p>
-        {% endif %}
+        <h2 class="truncate font-sans text-sm font-bold leading-tight text-blue-950">{{ title }}</h2>
+        <p class="truncate text-xs text-slate-500">{{ subtitle }}</p>
     </div>
 </div>
 {% endmacro %}
 
 {% block content %}
-<div class="mx-auto flex w-full max-w-[1400px] flex-col gap-3">
+{# Review queue, built once so the header badge and the rows always agree #}
+{% set queue = [
+    {'label': 'Event proposals',   'icon': 'fa-calendar-check', 'count': pending_events|int,   'url': url_for('events.list_page', status='submitted'),   'tile': 'bg-blue-50 text-blue-900'},
+    {'label': 'Project proposals', 'icon': 'fa-diagram-project', 'count': pending_projects|int, 'url': url_for('projects.list_page', status='submitted'), 'tile': 'bg-amber-50 text-amber-700'},
+    {'label': 'Budget requests',   'icon': 'fa-wallet',          'count': pending_budgets|int,  'url': url_for('budgets.list_page', status='submitted'),  'tile': 'bg-blue-50 text-blue-900'},
+    {'label': 'Expense claims',    'icon': 'fa-receipt',         'count': pending_expenses|int, 'url': url_for('expenses.list_page', status='submitted'), 'tile': 'bg-amber-50 text-amber-700'}] %}
+{% set queue_total = queue|sum(attribute='count') %}
 
-    <!-- Dashboard Header -->
-    <header class="flex flex-wrap items-end justify-between gap-2">
+<div class="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+
+    <!-- Header -->
+    <header class="flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
-            <h1 class="text-xl font-extrabold tracking-tight text-blue-950 sm:text-2xl">
-                School Admin Dashboard
-            </h1>
-            <p class="text-sm text-slate-600">
-                Election and student management overview.
-                Welcome, {{ current_user.full_name }}.
+            <p class="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">Administration</p>
+            <h1 class="text-2xl font-extrabold tracking-tight text-blue-950 sm:text-[1.7rem]">School Admin Dashboard</h1>
+            <p class="mt-0.5 text-sm text-slate-600">
+                Welcome back, <span class="font-semibold text-slate-800">{{ current_user.full_name }}</span>.
+                {% if queue_total %}You have <span class="font-num font-semibold text-amber-700">{{ queue_total }}</span> item{{ 's' if queue_total != 1 }} waiting for review.
+                {% else %}Nothing is waiting for your review.{% endif %}
             </p>
         </div>
-
-        <span class="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-900">
-            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>
-            {{ current_user.role_display }}
+        <span class="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1.5 text-xs font-semibold text-blue-900">
+            <i class="fa-solid fa-user-shield" aria-hidden="true"></i>{{ current_user.role_display }}
         </span>
     </header>
 
-    <!-- Statistics -->
+    <!-- Key figures -->
     <section aria-label="School statistics">
-        <div class="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 xl:grid-cols-4">
-            {{ stat_card('fa-user-graduate', 'Total Students', total_students, 'Registered student accounts') }}
-            {{ stat_card('fa-check-to-slot', 'Open Elections', open_elections, 'Currently accepting votes', highlight=(open_elections|int > 0)) }}
-            {{ stat_card('fa-id-badge', 'Registered Candidates', registered_candidates, 'Candidate records') }}
-            {{ stat_card('fa-calendar-days', 'Scheduled Elections', scheduled_elections, 'Upcoming elections') }}
+        <div class="grid grid-cols-1 gap-3 min-[560px]:grid-cols-2 xl:grid-cols-4">
+            {{ kpi('fa-user-graduate', 'Total students', total_students, 'Registered student accounts', url_for('students.list_page'), 'blue') }}
+            {{ kpi('fa-check-to-slot', 'Open elections', open_elections, 'Currently accepting votes', url_for('elections.list_page', status='open'), 'green', live=True) }}
+            {{ kpi('fa-id-badge', 'Registered candidates', registered_candidates, 'Candidate records', url_for('candidates.list_page'), 'amber') }}
+            {{ kpi('fa-calendar-days', 'Scheduled elections', scheduled_elections, 'Upcoming elections', url_for('elections.list_page', status='scheduled'), 'slate') }}
         </div>
     </section>
-    {# Analytics #}
-    {% if charts %}
-    <section class="grid grid-cols-1 items-start gap-3 lg:grid-cols-2"
-             aria-label="School analytics">
 
-        {% if charts.departments is defined %}
-        <article class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                <div>
-                    <h2 class="text-sm font-bold text-blue-950">Students by Department</h2>
-                    <p class="mt-1 text-xs text-slate-500">Distribution of registered students</p>
-                </div>
-                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-900">
-                    <i class="fa-solid fa-users" aria-hidden="true"></i>
-                </span>
-            </div>
+    <!-- Analytics and review queue -->
+    <section class="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2 xl:grid-cols-3" aria-label="School analytics and review queue">
 
-            <div class="p-4">
-                <div class="relative h-[260px] w-full">
-                    <canvas
-                        id="chart-sa-departments"
-                        role="img"
-                        aria-label="Doughnut chart showing student counts by department">
-                    </canvas>
+        {% if charts and charts.departments is defined %}
+        <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            {{ card_head('fa-users', 'Students by department', 'Distribution of registered students') }}
+            <div class="flex-1 p-4">
+                <div class="relative h-[250px] w-full">
+                    <canvas id="chart-sa-departments" role="img" aria-label="Doughnut chart showing student counts by department"></canvas>
                 </div>
-                <p id="chart-sa-departments-note"
-                   class="mt-2 text-center text-xs text-slate-500"
-                   aria-live="polite"></p>
+                <p id="chart-sa-departments-note" class="mt-2 text-center text-xs text-slate-500" aria-live="polite"></p>
             </div>
+            {# subscript, not .values: a dict's own .values() method would win otherwise #}
+            {% set dept_total = (charts.departments['values'] or [])|sum %}
+            <footer class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                <span>Total</span><span class="font-num font-bold text-slate-900">{{ '{:,}'.format(dept_total|int) }} students</span>
+            </footer>
         </article>
         {% endif %}
 
-        {% if charts.candidates is defined %}
-        <article class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
-                <div>
-                    <h2 class="text-sm font-bold text-blue-950">Candidates by Review Status</h2>
-                    <p class="mt-1 text-xs text-slate-500">Overview of candidate application statuses</p>
+        {% if charts and charts.candidates is defined %}
+        <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            {{ card_head('fa-chart-bar', 'Candidates by review status', 'Where each application stands', 'amber') }}
+            <div class="flex-1 p-4">
+                <div class="relative h-[250px] w-full">
+                    <canvas id="chart-sa-candidates" role="img" aria-label="Horizontal bar chart showing candidate counts by review status"></canvas>
                 </div>
-                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-800">
-                    <i class="fa-solid fa-chart-bar" aria-hidden="true"></i>
-                </span>
+                <p id="chart-sa-candidates-note" class="mt-2 text-center text-xs text-slate-500" aria-live="polite"></p>
             </div>
-
-            <div class="p-4">
-                <div class="relative h-[260px] w-full">
-                    <canvas
-                        id="chart-sa-candidates"
-                        role="img"
-                        aria-label="Horizontal bar chart showing candidate counts by review status">
-                    </canvas>
-                </div>
-                <p id="chart-sa-candidates-note"
-                   class="mt-2 text-center text-xs text-slate-500"
-                   aria-live="polite"></p>
-            </div>
+            {% set cand_total = (charts.candidates['values'] or [])|sum %}
+            <footer class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                <span>Total</span><span class="font-num font-bold text-slate-900">{{ '{:,}'.format(cand_total|int) }} candidates</span>
+            </footer>
         </article>
         {% endif %}
 
-    </section>
-    {% endif %}
-    <!-- Review Queue -->
-    <section aria-labelledby="review-queue-heading">
-        <div class="mb-2 flex flex-wrap items-end justify-between gap-2">
-            <div>
-                <h2 id="review-queue-heading" class="text-base font-bold text-blue-950">
-                    Waiting for Your Review
-                </h2>
-                <p class="text-xs text-slate-500">
-                    Review submitted proposals and financial requests.
-                </p>
+        <!-- Review queue -->
+        <article class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:col-span-2 xl:col-span-1" aria-labelledby="review-queue-heading">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-50 text-sm text-amber-700"><i class="fa-solid fa-clock" aria-hidden="true"></i></span>
+                    <div class="min-w-0">
+                        <h2 id="review-queue-heading" class="truncate font-sans text-sm font-bold leading-tight text-blue-950">Review queue</h2>
+                        <p class="truncate text-xs text-slate-500">Proposals and financial requests</p>
+                    </div>
+                </div>
+                {% if queue_total %}
+                <span class="shrink-0 whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800"><span class="font-num">{{ queue_total }}</span> pending</span>
+                {% else %}
+                <span class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-800"><i class="fa-solid fa-check" aria-hidden="true"></i>All clear</span>
+                {% endif %}
             </div>
 
-            <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-800">
-                <i class="fa-solid fa-clock" aria-hidden="true"></i>
-                Review Queue
-            </span>
-        </div>
-
-        <div class="grid grid-cols-1 gap-2 min-[480px]:grid-cols-2 xl:grid-cols-4">
-
-            <!-- Events -->
-            <a href="{{ url_for('events.list_page', status='submitted') }}"
-               class="group flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-900">
-                    <i class="fa-solid fa-calendar-check" aria-hidden="true"></i>
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate text-xs font-semibold text-slate-500">Event Proposals</span>
-                    <span class="block text-xl font-extrabold leading-tight text-slate-900 font-num">{{ pending_events }}</span>
-                    <span class="block truncate text-[11px] text-slate-500">Submitted or under review</span>
-                </span>
-                <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-800" aria-hidden="true"></i>
-            </a>
-
-            <!-- Projects -->
-            <a href="{{ url_for('projects.list_page', status='submitted') }}"
-               class="group flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-800">
-                    <i class="fa-solid fa-diagram-project" aria-hidden="true"></i>
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate text-xs font-semibold text-slate-500">Project Proposals</span>
-                    <span class="block text-xl font-extrabold leading-tight text-slate-900 font-num">{{ pending_projects }}</span>
-                    <span class="block truncate text-[11px] text-slate-500">Submitted or under review</span>
-                </span>
-                <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-800" aria-hidden="true"></i>
-            </a>
-
-            <!-- Budgets -->
-            <a href="{{ url_for('budgets.list_page', status='submitted') }}"
-               class="group flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-900">
-                    <i class="fa-solid fa-wallet" aria-hidden="true"></i>
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate text-xs font-semibold text-slate-500">Budget Requests</span>
-                    <span class="block text-xl font-extrabold leading-tight text-slate-900 font-num">{{ pending_budgets }}</span>
-                    <span class="block truncate text-[11px] text-slate-500">Submitted or under review</span>
-                </span>
-                <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-800" aria-hidden="true"></i>
-            </a>
-
-            <!-- Expenses -->
-            <a href="{{ url_for('expenses.list_page', status='submitted') }}"
-               class="group flex min-w-0 items-center gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400">
-                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-800">
-                    <i class="fa-solid fa-receipt" aria-hidden="true"></i>
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate text-xs font-semibold text-slate-500">Expenses</span>
-                    <span class="block text-xl font-extrabold leading-tight text-slate-900 font-num">{{ pending_expenses }}</span>
-                    <span class="block truncate text-[11px] text-slate-500">Submitted or under review</span>
-                </span>
-                <i class="fa-solid fa-chevron-right text-xs text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-800" aria-hidden="true"></i>
-            </a>
-
-        </div>
+            <ul class="flex-1 divide-y divide-slate-100">
+                {% for q in queue %}
+                <li>
+                    <a href="{{ q.url }}" class="group flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 focus:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300">
+                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-sm {{ q.tile }}"><i class="fa-solid {{ q.icon }}" aria-hidden="true"></i></span>
+                        <span class="min-w-0 flex-1">
+                            <span class="block truncate text-sm font-semibold text-slate-800">{{ q.label }}</span>
+                            <span class="block truncate text-xs text-slate-500">Submitted or under review</span>
+                        </span>
+                        <span class="font-num grid min-w-[2rem] place-items-center rounded-full px-2 py-0.5 text-sm font-bold {{ 'bg-amber-100 text-amber-800' if q.count else 'bg-slate-100 text-slate-500' }}">{{ q.count }}</span>
+                        <i class="fa-solid fa-chevron-right text-xs text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-blue-800" aria-hidden="true"></i>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            <footer class="border-t border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                {% if queue_total %}Open an item to approve, reject or request changes.{% else %}Nothing is waiting for review right now.{% endif %}
+            </footer>
+        </article>
     </section>
-
 </div>
 {% endblock %}
 
@@ -199,9 +168,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
 
-<script id="sa-chart-data" type="application/json">
-    {{ charts|tojson }}
-</script>
+<script id="sa-chart-data" type="application/json">{{ charts|tojson }}</script>
 
 <script>
 (function () {
@@ -221,7 +188,6 @@
         }
 
         let data;
-
         try {
             data = JSON.parse(element.textContent || "{}");
         } catch (error) {
@@ -230,42 +196,28 @@
         }
 
         const departmentCanvas = document.getElementById("chart-sa-departments");
-
         if (data.departments && departmentCanvas) {
             C.pie(
                 "chart-sa-departments",
                 data.departments.labels || [],
                 data.departments.values || [],
-                {
-                    noun: "students",
-                    emptyText: "No student records available yet."
-                }
+                { noun: "students", emptyText: "No student records available yet." }
             );
         }
 
         const candidateCanvas = document.getElementById("chart-sa-candidates");
-
         if (data.candidates && candidateCanvas) {
             C.hbar(
                 "chart-sa-candidates",
                 data.candidates.labels || [],
-                [{
-                    label: "Candidates",
-                    data: data.candidates.values || [],
-                    color: "#1e3a8a"
-                }],
-                {
-                    emptyText: "No candidate records available yet."
-                }
+                [{ label: "Candidates", data: data.candidates.values || [], color: "#1e3a8a" }],
+                { emptyText: "No candidate records available yet." }
             );
         }
     }
 
     if (document.readyState === "loading") {
-        document.addEventListener(
-            "DOMContentLoaded",
-            initializeSchoolAdminCharts
-        );
+        document.addEventListener("DOMContentLoaded", initializeSchoolAdminCharts);
     } else {
         initializeSchoolAdminCharts();
     }
