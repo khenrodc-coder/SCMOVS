@@ -1,4 +1,4 @@
-from flask import Blueprint, abort, g, redirect, render_template, url_for
+﻿from flask import Blueprint, abort, g, redirect, render_template, url_for
 
 from app.admin.services import get_dashboard_stats
 from app.auth.decorators import login_required, role_required
@@ -55,16 +55,28 @@ def school_admin_charts():
 @dashboard_bp.route("/school-admin/dashboard")
 @role_required("school_admin")
 def school_admin_home():
-    return render_template("school_admin/dashboard.html", charts=school_admin_charts(),
-                           pending_events=proposals.pending_count(
-                               proposals.EVENT),
-                           pending_projects=proposals.pending_count(
-                               proposals.PROJECT),
-                           pending_budgets=finance.pending_count(
-                               finance.BUDGET),
-                           pending_expenses=finance.pending_count(finance.EXPENSE))
+    stats = fetch_one(
+        "SELECT "
+        "(SELECT COUNT(*) FROM students WHERE status <> 'archived') AS total_students, "
+        "(SELECT COUNT(*) FROM elections WHERE status = 'open') AS open_elections, "
+        "(SELECT COUNT(*) FROM candidates c "
+        " JOIN elections e ON e.id = c.election_id "
+        " WHERE e.status <> 'archived') AS registered_candidates, "
+        "(SELECT COUNT(*) FROM elections WHERE status = 'scheduled') AS scheduled_elections"
+    ) or {}
 
-
+    return render_template(
+        "school_admin/dashboard.html",
+        charts=school_admin_charts(),
+        total_students=int(stats.get("total_students") or 0),
+        open_elections=int(stats.get("open_elections") or 0),
+        registered_candidates=int(stats.get("registered_candidates") or 0),
+        scheduled_elections=int(stats.get("scheduled_elections") or 0),
+        pending_events=proposals.pending_count(proposals.EVENT),
+        pending_projects=proposals.pending_count(proposals.PROJECT),
+        pending_budgets=finance.pending_count(finance.BUDGET),
+        pending_expenses=finance.pending_count(finance.EXPENSE)
+    )
 @dashboard_bp.route("/council-officer/dashboard")
 @role_required("council_officer")
 def council_officer_home():
@@ -110,3 +122,4 @@ def student_home():
 def profile():
     """Kept so existing links (url_for('dashboard.profile')) still work: the page now lives in app/profile."""
     return redirect(url_for("profile.page"))
+
