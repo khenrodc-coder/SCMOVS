@@ -79,6 +79,9 @@ def create_app():
     app.register_blueprint(voting_bp)
     app.register_blueprint(notifications_bp)
 
+    from app.results.routes import results_bp
+    app.register_blueprint(results_bp)
+
     from app.audit.routes import audit_bp
     from app.archives.routes import archives_bp
     from app.settings.routes import settings_bp
@@ -95,7 +98,8 @@ def create_app():
     app.register_blueprint(media_bp)
     app.register_blueprint(profile_bp)
 
-    app.add_template_filter(lambda row: display_name(row.get('first_name'), row.get('middle_name'), row.get('last_name'), row.get('full_name')), 'person_name')
+    app.add_template_filter(lambda row: display_name(row.get('first_name'), row.get(
+        'middle_name'), row.get('last_name'), row.get('full_name')), 'person_name')
 
     from app.errors import register_error_handlers
     register_error_handlers(app)
