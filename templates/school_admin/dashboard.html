@@ -184,58 +184,72 @@
 {% endblock %}
 
 {% block scripts %}
+{% block scripts %}
 {% if charts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
 
-<script id="sa-chart-data" type="application/json">{{ charts|tojson|safe }}</script>
+<script id="sa-chart-data" type="application/json">{{ charts|tojson }}</script>
 
 <script>
 (function () {
     "use strict";
 
-    const element = document.getElementById("sa-chart-data");
-    if (!element) return;
+    function initializeSchoolAdminCharts() {
+        const element = document.getElementById("sa-chart-data");
+        if (!element) return;
 
-    let data;
-    try {
-        data = JSON.parse(element.textContent || "{}");
-    } catch (error) {
-        console.error("Unable to parse School Admin chart data.", error);
-        return;
+        if (typeof window.Chart === "undefined") {
+            console.error("Chart.js failed to load.");
+            return;
+        }
+
+        const C = window.SCMOVS_charts;
+        if (!C) {
+            console.error("SCMOVS chart helpers were not loaded.");
+            return;
+        }
+
+        let data;
+        try {
+            data = JSON.parse(element.textContent || "{}");
+        } catch (error) {
+            console.error("Unable to parse School Admin chart data.", error);
+            return;
+        }
+
+        if (data.departments && document.getElementById("chart-sa-departments")) {
+            C.pie(
+                "chart-sa-departments",
+                data.departments.labels || [],
+                data.departments.values || [],
+                {
+                    noun: "students",
+                    emptyText: "No student records available yet."
+                }
+            );
+        }
+
+        if (data.candidates && document.getElementById("chart-sa-candidates")) {
+            C.hbar(
+                "chart-sa-candidates",
+                data.candidates.labels || [],
+                [{
+                    label: "Candidates",
+                    data: data.candidates.values || [],
+                    color: "#1e3a8a"
+                }],
+                {
+                    emptyText: "No candidate records available yet."
+                }
+            );
+        }
     }
 
-    const C = window.SCMOVS_charts;
-    if (!C) {
-        console.error("SCMOVS chart helpers were not loaded.");
-        return;
-    }
-
-    if (data.departments) {
-        C.pie(
-            "chart-sa-departments",
-            data.departments.labels || [],
-            data.departments.values || [],
-            {
-                noun: "students",
-                emptyText: "No student records available yet."
-            }
-        );
-    }
-
-    if (data.candidates) {
-        C.hbar(
-            "chart-sa-candidates",
-            data.candidates.labels || [],
-            [{
-                label: "Candidates",
-                data: data.candidates.values || [],
-                color: "#1e3a8a"
-            }],
-            {
-                emptyText: "No candidate records available yet."
-            }
-        );
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initializeSchoolAdminCharts);
+    } else {
+        initializeSchoolAdminCharts();
     }
 })();
 </script>
