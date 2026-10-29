@@ -184,73 +184,66 @@
 {% endblock %}
 
 {% block scripts %}
-{% if charts %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="{{ url_for('static', filename='js/charts_common.js') }}"></script>
+  {% if charts %}
+    <section class="grid grid-cols-1 gap-3 lg:grid-cols-2"
+             aria-label="School analytics">
 
-<script id="sa-chart-data" type="application/json">{{ charts|tojson }}</script>
+        <!-- Students by Department -->
+        {% if charts.departments is defined %}
+        <article class="flex min-h-[350px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div>
+                    <h2 class="text-sm font-bold text-blue-950">
+                        Students by Department
+                    </h2>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Distribution of registered students
+                    </p>
+                </div>
+                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-900">
+                    <i class="fa-solid fa-users" aria-hidden="true"></i>
+                </span>
+            </div>
 
-<script>
-(function () {
-    "use strict";
+            <div class="relative flex-1 p-4" style="min-height: 290px;">
+                <canvas id="chart-sa-departments"
+                        role="img"
+                        aria-label="Doughnut chart showing student counts by department"></canvas>
+                <p id="chart-sa-departments-note"
+                   class="mt-2 text-center text-xs text-slate-500"
+                   aria-live="polite"></p>
+            </div>
+        </article>
+        {% endif %}
 
-    function initializeSchoolAdminCharts() {
-        const element = document.getElementById("sa-chart-data");
-        if (!element) return;
+        <!-- Candidates by Review Status -->
+        {% if charts.candidates is defined %}
+        <article class="flex min-h-[350px] min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div>
+                    <h2 class="text-sm font-bold text-blue-950">
+                        Candidates by Review Status
+                    </h2>
+                    <p class="mt-1 text-xs text-slate-500">
+                        Overview of candidate application statuses
+                    </p>
+                </div>
+                <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-800">
+                    <i class="fa-solid fa-chart-bar" aria-hidden="true"></i>
+                </span>
+            </div>
 
-        if (typeof window.Chart === "undefined") {
-            console.error("Chart.js failed to load.");
-            return;
-        }
+            <div class="relative flex-1 p-4" style="min-height: 290px;">
+                <canvas id="chart-sa-candidates"
+                        role="img"
+                        aria-label="Horizontal bar chart showing candidate counts by review status"></canvas>
+                <p id="chart-sa-candidates-note"
+                   class="mt-2 text-center text-xs text-slate-500"
+                   aria-live="polite"></p>
+            </div>
+        </article>
+        {% endif %}
 
-        const C = window.SCMOVS_charts;
-        if (!C) {
-            console.error("SCMOVS chart helpers were not loaded.");
-            return;
-        }
-
-        let data;
-        try {
-            data = JSON.parse(element.textContent || "{}");
-        } catch (error) {
-            console.error("Unable to parse School Admin chart data.", error);
-            return;
-        }
-
-        if (data.departments && document.getElementById("chart-sa-departments")) {
-            C.pie(
-                "chart-sa-departments",
-                data.departments.labels || [],
-                data.departments.values || [],
-                {
-                    noun: "students",
-                    emptyText: "No student records available yet."
-                }
-            );
-        }
-
-        if (data.candidates && document.getElementById("chart-sa-candidates")) {
-            C.hbar(
-                "chart-sa-candidates",
-                data.candidates.labels || [],
-                [{
-                    label: "Candidates",
-                    data: data.candidates.values || [],
-                    color: "#1e3a8a"
-                }],
-                {
-                    emptyText: "No candidate records available yet."
-                }
-            );
-        }
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", initializeSchoolAdminCharts);
-    } else {
-        initializeSchoolAdminCharts();
-    }
-})();
-</script>
-{% endif %}
+    </section>
+    {% endif %}
 {% endblock %}
