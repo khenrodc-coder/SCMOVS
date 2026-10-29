@@ -48,6 +48,8 @@
     {% else %}
     <p class="px-4 py-6 text-center text-sm text-slate-500">No announcements yet.</p>
     {% endif %}
-    <div class="border-t border-slate-200 px-4 py-2"><a href="{{ url_for('announcements.list_page') }}" class="text-xs font-semibold text-blue-700 hover:underline">View all announcements</a></div>
+    <div class="border-t border-slate-200 px-4 py-2">
+    <span class="text-xs text-slate-500">Latest announcements</span>
+</div>
 </section>
 {% endmacro %}
