@@ -56,6 +56,18 @@
     {{ notifications_panel(overview.notifications, overview.unread) }}
 </div>
 
+<div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
+    <div class="grid content-start gap-3">
+        {{ announcements_panel(overview.announcements) }}
+        <section class="rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="My account">
+            {{ panel_head('fa-user', 'My account') }}
+            <div class="grid gap-2 p-3">
+                {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View your account details') }}
+                {{ quick_link(url_for('profile.page'), 'fa-key', 'Change password', 'Keep your account secure') }}
+            </div>
+        </section>
+    </div>
+</div>
 {% else %}
 <div class="mt-3 rounded-lg border border-amber-300 border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
     No student record is linked to your account. Please contact the school administration.
