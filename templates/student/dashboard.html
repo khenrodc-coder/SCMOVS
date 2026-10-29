@@ -56,29 +56,6 @@
     {{ notifications_panel(overview.notifications, overview.unread) }}
 </div>
 
-<div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
-    <section class="rounded-lg border border-slate-200 bg-white shadow-sm xl:col-span-2" aria-label="Student information">
-        {{ panel_head('fa-user-graduate', 'Student information') }}
-        <dl class="grid grid-cols-1 divide-y divide-slate-100 text-sm sm:grid-cols-2 sm:divide-y-0">
-            <div class="flex justify-between gap-3 px-4 py-2.5 sm:border-b sm:border-slate-100"><dt class="text-slate-500">Full name</dt><dd class="truncate font-medium text-slate-900">{{ current_user.full_name }}</dd></div>
-            <div class="flex justify-between gap-3 px-4 py-2.5 sm:border-b sm:border-slate-100"><dt class="text-slate-500">Student ID</dt><dd class="font-medium text-slate-900">{{ student.student_number }}</dd></div>
-            <div class="flex justify-between gap-3 px-4 py-2.5 sm:border-b sm:border-slate-100"><dt class="text-slate-500">Department</dt><dd class="truncate font-medium text-slate-900">{{ student.department }}</dd></div>
-            <div class="flex justify-between gap-3 px-4 py-2.5 sm:border-b sm:border-slate-100"><dt class="text-slate-500">Year level</dt><dd class="font-medium text-slate-900">{{ student.year_level }}</dd></div>
-            <div class="flex justify-between gap-3 px-4 py-2.5"><dt class="text-slate-500">Section</dt><dd class="font-medium text-slate-900">{{ student.section }}</dd></div>
-            <div class="flex justify-between gap-3 px-4 py-2.5"><dt class="text-slate-500">School year</dt><dd class="font-medium text-slate-900">{{ student.school_year }}</dd></div>
-        </dl>
-    </section>
-    <div class="grid content-start gap-3">
-        {{ announcements_panel(overview.announcements) }}
-        <section class="rounded-lg border border-slate-200 bg-white shadow-sm" aria-label="My account">
-            {{ panel_head('fa-user', 'My account') }}
-            <div class="grid gap-2 p-3">
-                {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View your account details') }}
-                {{ quick_link(url_for('profile.page'), 'fa-key', 'Change password', 'Keep your account secure') }}
-            </div>
-        </section>
-    </div>
-</div>
 {% else %}
 <div class="mt-3 rounded-lg border border-amber-300 border-l-4 border-l-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
     No student record is linked to your account. Please contact the school administration.
