@@ -1,4 +1,3 @@
-```html
 {% extends "layouts/app_layout.html" %}
 {% from "components/cards.html" import stat_card, panel_head, quick_link %}
 
@@ -90,9 +89,9 @@
     </section>
 
     <!-- Attention and Notifications -->
-    <div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-3">
+    <div class="grid grid-cols-1 items-start gap-4">
 
-        <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm xl:col-span-2" aria-label="Needs your attention">
+        <section class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="Needs your attention">
             {{ panel_head('fa-bell-concierge', 'Needs Your Attention', 'Drafts, rejected submissions, and items requiring follow-up') }}
 
             {% if overview.attention %}
@@ -382,14 +381,6 @@
             <p class="px-4 py-8 text-center text-sm text-slate-500">No council assignment is currently available.</p>
             {% endif %}
         </section>
-
-        <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" aria-label="My account">
-            {{ panel_head('fa-user', 'My Account', 'Manage your account settings') }}
-            <div class="grid gap-2 p-4">
-                {{ quick_link(url_for('dashboard.profile'), 'fa-id-card', 'Profile', 'View your account details') }}
-                {{ quick_link(url_for('profile.page'), 'fa-key', 'Change Password', 'Keep your account secure') }}
-            </div>
-        </section>
     </div>
 
 </div>
@@ -418,4 +409,3 @@
 <script src="{{ url_for('static', filename='js/officer_dashboard.js') }}"></script>
 {% endif %}
 {% endblock %}
-```
