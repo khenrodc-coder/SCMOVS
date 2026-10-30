@@ -25,11 +25,10 @@ SETTINGS = [
     {"key": "election_require_candidate_per_position", "category": "election", "type": "bool", "default": True,
      "label": "Every position needs an approved candidate",
      "help": "An election cannot be opened while a position has no approved candidate."},
-    {"key": "election_block_pending_candidates", "category": "election", "type": "bool", "default": True,
+    {"key": "election_separate_verifier", "category": "election", "type": "bool", "default": True,
      "label": "Results need a second administrator",
      "help": "The administrator who calculated an election's results cannot also verify them. "
              "Turn this off only if your school has a single administrator."},
-
     {"key": "notifications_enabled", "category": "notification", "type": "bool", "default": True,
      "label": "Send in-app notifications",
      "help": "Candidate decisions and election open/close notices. Turn off to stop creating them."},

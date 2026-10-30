@@ -52,7 +52,7 @@
     </strong>
     <a href="{{ url_for('voting.my_elections') }}"
        class="ml-2 font-semibold underline">
-        Go to My Elections
+        Elections
     </a>
 </div>
 {% endif %}
@@ -96,6 +96,7 @@
                         Vote now
                     </a>
                     {% endif %}
+                    {% if e.results_published %}<a href="{{ url_for('results.view', election_id=e.id) }}" class="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-semibold text-blue-800 hover:bg-blue-50">Results</a>{% endif %}
 
                 </div>
             </li>

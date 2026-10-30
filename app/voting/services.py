@@ -179,6 +179,7 @@ def list_elections(student):
             row["state_label"] = "Super Admin voting unavailable"
             row["tone"] = "slate"
             row["can_vote"] = False
+
         else:
             row["state_label"], row["tone"] = STATE_LABELS[row["state"]]
             row["can_vote"] = row["state"] == "open"
