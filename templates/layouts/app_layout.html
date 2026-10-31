@@ -72,7 +72,7 @@ html.sb-toggling #sidebar .brand-row>*{animation:sb-soft-in var(--sb-dur) ease b
 {% endcall %}
 {% endif %}
 {% if has_permission('elections.view') or has_permission('candidates.manage') or has_permission('positions.manage') or has_permission('results.verify') or has_permission('elections.publish') %}
-{% call nav_group('elections','clipboard-document-check','Elections',ep.startswith('elections.') or ep.startswith('candidates.') or ep.startswith('positions.') or ep.startswith('results.admin')) %}
+{% call nav_group('elections management','clipboard-document-check','Elections',ep.startswith('elections.') or ep.startswith('candidates.') or ep.startswith('positions.') or ep.startswith('results.admin')) %}
 {% if has_permission('elections.view') %}{{ nav_link(url_for('elections.list_page'),'clipboard-document-check','Elections',ep.startswith('elections.')) }}{% endif %}
 {% if has_permission('candidates.manage') %}{{ nav_link(url_for('candidates.list_page'),'identification','Candidates',ep.startswith('candidates.')) }}{% endif %}
 {% if has_permission('results.verify') or has_permission('elections.publish') %}{{ nav_link(url_for('results.admin_list'),'chart-bar','Results',ep.startswith('results.admin')) }}{% endif %}
